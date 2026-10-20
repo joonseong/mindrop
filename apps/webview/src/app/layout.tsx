@@ -1,0 +1,26 @@
+import type { Metadata, Viewport } from 'next';
+
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: '미니커버리',
+  description: '궁금한 것을 매일 3분씩',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#FFFFFF',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ko">
+      <body className="font-sans antialiased">
+        <div className="relative mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-shape-white">{children}</div>
+      </body>
+    </html>
+  );
+}

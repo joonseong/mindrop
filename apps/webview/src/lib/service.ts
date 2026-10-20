@@ -1,0 +1,424 @@
+import { getGenerator } from './ai';
+import { costUsd } from './ai/pricing';
+import type { Metered } from './ai/types';
+import { DAILY_PREMIUM_REALTIME, LEARNED_COMPLETION_RATIO } from './constants';
+import { formatDropText, isCompleteBody, parseDropText } from './drop-format';
+import { getStore } from './store';
+import type {
+  Course,
+  Drop,
+  ExplainAnswer,
+  GenerationMode,
+  Level,
+  ModelTier,
+  TaskType,
+  UnderstandingSignal,
+  User,
+  UsageLog,
+} from './types';
+import { kstDate, newId, nowIso } from './util';
+
+/* ---------- 기록 ---------- */
+
+export async function track(userId: string, name: string, props?: Record<string, unknown>) {
+  await getStore().addEvent({ id: newId(), userId, name, props, at: nowIso() });
+}
+
+async function logUsage(userId: string, purpose: UsageLog['purpose'], m: Metered<unknown>, mode: GenerationMode) {
+  await getStore().addUsage({
+    id: newId(),
+    userId,
+    at: nowIso(),
+    purpose,
+    model: m.model,
+    mode,
+    inputTokens: m.usage.inputTokens,
+    outputTokens: m.usage.outputTokens,
+    cacheReadTokens: m.usage.cacheReadTokens,
+    searches: m.usage.searches,
+    costUsd: costUsd(m.model, m.usage, mode === 'batch'),
+  });
+}
+
+async function logFailure(userId: string, stage: string, error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`[${stage}]`, error);
+  await getStore().addFailure({ id: newId(), userId, at: nowIso(), stage, message });
+}
+
+/* ---------- 스트리밍 응답 (NDJSON) ---------- */
+
+export type StreamEvent = Record<string, unknown> & { type: string };
+
+export function ndjsonStream(run: (send: (e: StreamEvent) => void) => Promise<void>): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      let closed = false;
+      const send = (e: StreamEvent) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(e) + '\n'));
+        } catch {
+          // 사용자가 화면을 떠나 연결이 끊겨도 생성은 끝까지 진행해 저장한다 (US-03 재진입)
+          closed = true;
+        }
+      };
+      try {
+        await run(send);
+      } finally {
+        if (!closed) controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store' },
+  });
+}
+
+/* ---------- 주제 검사 ---------- */
+
+export async function checkTopic(user: User, input: string) {
+  const g = getGenerator();
+  const m = await g.checkTopic(input);
+  await logUsage(user.id, 'check', m, 'realtime');
+  return m.result;
+}
+
+/* ---------- 코스 ---------- */
+
+export async function canCreateCourse(user: User) {
+  if (!user.anon) return true;
+  const courses = await getStore().listCourses(user.id);
+  // 가입 전 생성은 기기당 코스 1개 (결정, PRD §0.2)
+  return courses.filter(c => c.status !== 'failed').length < 1;
+}
+
+export async function createCourse(
+  user: User,
+  input: { topic: string; level: Level; category: string; taskType: TaskType },
+  send: (e: StreamEvent) => void,
+  existing?: Course,
+) {
+  const store = getStore();
+  const isFirstCourse = (await store.listCourses(user.id)).filter(c => c.status !== 'failed').length <= (existing ? 1 : 0);
+  const course: Course = existing ?? {
+    id: newId(),
+    userId: user.id,
+    topic: input.topic,
+    title: input.topic,
+    level: input.level,
+    category: input.category,
+    taskType: input.taskType,
+    status: 'generating',
+    outline: [],
+    related: [],
+    regenUsed: false,
+    createdAt: nowIso(),
+  };
+  course.status = 'generating';
+  await store.saveCourse(course);
+  send({ type: 'course', courseId: course.id });
+
+  const g = getGenerator();
+  let m: Metered<{ title: string; drops: string[]; related: string[] }> | undefined;
+  for (let attempt = 0; attempt < 2 && !m; attempt++) {
+    try {
+      if (attempt > 0) send({ type: 'retry' });
+      m = await g.curriculum(
+        { topic: course.topic, level: course.level, isFirstCourse },
+        {
+          title: title => send({ type: 'title', title }),
+          drop: (title, index) => send({ type: 'drop', title, index }),
+        },
+      );
+    } catch (error) {
+      await logFailure(user.id, 'curriculum', error);
+    }
+  }
+  if (!m) {
+    course.status = 'failed';
+    await store.saveCourse(course);
+    send({ type: 'error', message: '코스를 만들지 못했어요.' });
+    return;
+  }
+  await logUsage(user.id, 'curriculum', m, 'realtime');
+
+  // 재생성이면 이전 Drop을 버린다
+  for (const d of await store.listDrops(course.id)) {
+    d.status = 'failed';
+    await store.saveDrop({ ...d, courseId: `${course.id}:discarded` });
+  }
+
+  course.title = m.result.title;
+  course.outline = m.result.drops.map(title => ({ title }));
+  course.related = m.result.related.slice(0, 2);
+  course.status = 'active';
+  await store.saveCourse(course);
+  for (const [index, title] of m.result.drops.entries()) {
+    await store.saveDrop({ id: newId(), courseId: course.id, userId: user.id, index, title, status: 'pending', sources: [] });
+  }
+  const first = (await store.listDrops(course.id))[0];
+  await track(user.id, existing ? 'course_regenerated' : 'course_created', {
+    courseId: course.id,
+    category: course.category,
+    taskType: course.taskType,
+    level: course.level,
+  });
+  send({ type: 'done', courseId: course.id, firstDropId: first?.id });
+}
+
+/* ---------- Drop 생성 ---------- */
+
+/** 오늘 실시간으로 Opus 생성한 개수가 기준을 넘으면 Sonnet (PRD §29.3) */
+async function pickRealtimeModel(userId: string): Promise<ModelTier> {
+  const today = kstDate();
+  const usage = await getStore().listUsage(new Date(Date.now() - 36 * 3600_000).toISOString());
+  const premiumToday = usage.filter(
+    u => u.userId === userId && u.purpose === 'drop' && u.mode !== 'batch' && u.model === 'opus' && kstDate(u.at) === today,
+  ).length;
+  return premiumToday >= DAILY_PREMIUM_REALTIME ? 'sonnet' : 'opus';
+}
+
+async function learnedTitles(course: Course, beforeIndex: number) {
+  const drops = await getStore().listDrops(course.id);
+  return drops.filter(d => d.index < beforeIndex && d.completedAt).map(d => d.title);
+}
+
+/**
+ * 실시간 생성(스트리밍). 이미 생성 중이면 완료를 기다렸다가 결과를 보낸다.
+ * done 이후에도 연결을 유지한 채 사실 검증을 돌려, 고친 경우 corrected를 보낸다 (PRD §14.3).
+ */
+export async function generateDrop(user: User, dropId: string, mode: GenerationMode, send: (e: StreamEvent) => void) {
+  const store = getStore();
+  let drop = await store.getDrop(dropId);
+  if (!drop || drop.userId !== user.id) {
+    send({ type: 'error', message: 'Drop을 찾을 수 없어요.' });
+    return;
+  }
+  if (drop.status === 'ready') {
+    send({ type: 'ready', drop });
+    return;
+  }
+  if (drop.status === 'generating') {
+    send({ type: 'status', message: '거의 다 됐어요' });
+    for (let i = 0; i < 120; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      drop = (await store.getDrop(dropId))!;
+      if (drop.status !== 'generating') break;
+    }
+    if (drop.status === 'ready') send({ type: 'ready', drop });
+    else send({ type: 'error', message: 'Drop을 만들지 못했어요.' });
+    return;
+  }
+
+  const course = (await store.getCourse(drop.courseId))!;
+  drop.status = 'generating';
+  drop.mode = mode;
+  await store.saveDrop(drop);
+
+  const g = getGenerator();
+  const model = await pickRealtimeModel(user.id);
+  const params = {
+    courseTitle: course.title,
+    level: course.level,
+    outline: course.outline.map(o => o.title),
+    index: drop.index,
+    learnedTitles: await learnedTitles(course, drop.index),
+    model,
+  };
+
+  let output: Awaited<ReturnType<typeof g.drop>> | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (attempt > 0) send({ type: 'retry' });
+      const m = await g.drop(params, {
+        status: message => send({ type: 'status', message }),
+        text: delta => send({ type: 'text', delta }),
+      });
+      await logUsage(user.id, 'drop', m, mode);
+      if (m.result.refused) {
+        drop.status = 'failed';
+        await store.saveDrop(drop);
+        send({ type: 'refused' });
+        return;
+      }
+      const body = parseDropText(m.result.text);
+      // 출처 0개면 발행하지 않고 다시 생성 (PRD §14.2)
+      if (!isCompleteBody(body) || m.result.sources.length === 0) {
+        throw new Error(isCompleteBody(body) ? 'no sources' : 'incomplete body');
+      }
+      output = m;
+      break;
+    } catch (error) {
+      await logFailure(user.id, 'drop', error);
+    }
+  }
+
+  if (!output) {
+    drop.status = 'failed';
+    await store.saveDrop(drop);
+    send({ type: 'error', message: 'Drop을 만들지 못했어요.' });
+    return;
+  }
+
+  const body = parseDropText(output.result.text);
+  drop.body = isCompleteBody(body) ? body : undefined;
+  drop.sources = output.result.sources.slice(0, 3);
+  drop.evidence = output.result.evidence.slice(0, 20);
+  drop.model = model;
+  drop.status = 'ready';
+  drop.verify = 'pending';
+  drop.generatedAt = nowIso();
+  await store.saveDrop(drop);
+  send({ type: 'done', drop });
+
+  const verified = await verifyDrop(user.id, drop.id);
+  if (verified?.corrected) send({ type: 'corrected', drop: verified });
+  if (verified?.status === 'failed') send({ type: 'error', message: '내용을 다시 확인하고 있어요.' });
+}
+
+export async function verifyDrop(userId: string, dropId: string): Promise<Drop | null> {
+  const store = getStore();
+  const drop = await store.getDrop(dropId);
+  if (!drop?.body) return null;
+  try {
+    const m = await getGenerator().verify(formatDropText(drop.body), drop.evidence ?? []);
+    await logUsage(userId, 'verify', m, 'realtime');
+    const { verdict, fixedText } = m.result;
+    drop.verify = verdict;
+    if (verdict === 'fixed') {
+      const fixed = parseDropText(fixedText);
+      if (isCompleteBody(fixed)) {
+        drop.body = fixed;
+        drop.corrected = true;
+      }
+    }
+    if (verdict === 'conflict') {
+      // 근거와 충돌 → 발행 취소, 다음에 열 때 다시 생성
+      drop.status = 'failed';
+      drop.body = undefined;
+    }
+    await store.saveDrop(drop);
+    return drop;
+  } catch (error) {
+    await logFailure(userId, 'verify', error);
+    return null;
+  }
+}
+
+/* ---------- 읽기·완료 ---------- */
+
+export async function markRead(user: User, dropId: string) {
+  const store = getStore();
+  const drop = await store.getDrop(dropId);
+  if (!drop || drop.userId !== user.id || drop.readAt) return;
+  drop.readAt = nowIso();
+  await store.saveDrop(drop);
+  await track(user.id, 'drop_read', { dropId });
+}
+
+export async function completeDrop(user: User, dropId: string, signal: UnderstandingSignal) {
+  const store = getStore();
+  const drop = await store.getDrop(dropId);
+  if (!drop || drop.userId !== user.id) throw new Error('not found');
+  const firstEver = !(await store.listDropsByUser(user.id)).some(d => d.completedAt);
+  const already = Boolean(drop.completedAt);
+  drop.signal = signal;
+  drop.completedAt ??= nowIso();
+  await store.saveDrop(drop);
+
+  const course = (await store.getCourse(drop.courseId))!;
+  course.lastReadAt = nowIso();
+  if (!already) await track(user.id, 'drop_completed', { dropId, courseId: course.id, index: drop.index, signal });
+
+  // 첫 Drop을 읽은 시각을 기본 알림 시각으로 (PRD §17.2)
+  if (firstEver && !user.notifyTime) {
+    user.notifyTime = nextQuietSafeTime();
+    await store.saveUser(user);
+  }
+
+  const drops = await store.listDrops(course.id);
+  const isLast = drop.index === course.outline.length - 1;
+  if (isLast && course.status !== 'completed') {
+    course.status = 'completed';
+    course.completedAt = nowIso();
+    await track(user.id, 'course_completed', { courseId: course.id });
+  }
+  await store.saveCourse(course);
+
+  const next = drops.find(d => d.index === drop.index + 1);
+  return {
+    firstEver,
+    courseCompleted: isLast,
+    nextDropId: next?.id,
+    askNotify: firstEver && user.notifyPermission === 'unknown',
+  };
+}
+
+function nextQuietSafeTime() {
+  const hhmm = new Date(Date.now() + 9 * 3600_000).toISOString().slice(11, 16);
+  // 21시~08시에는 보내지 않는다
+  if (hhmm >= '21:00' || hhmm < '08:00') return '08:00';
+  return hhmm;
+}
+
+export async function answerExplain(user: User, courseId: string, answer: ExplainAnswer) {
+  const store = getStore();
+  const course = await store.getCourse(courseId);
+  if (!course || course.userId !== user.id) return;
+  course.explainAnswer = answer;
+  await store.saveCourse(course);
+  await track(user.id, 'course_explain_answer', { courseId, answer });
+}
+
+export async function reportDrop(user: User, dropId: string) {
+  const store = getStore();
+  const drop = await store.getDrop(dropId);
+  if (!drop || drop.userId !== user.id) return;
+  drop.reportedAt = nowIso();
+  await store.saveDrop(drop);
+  await store.addReport({ id: newId(), userId: user.id, dropId, at: nowIso() });
+  await track(user.id, 'drop_reported', { dropId });
+}
+
+/* ---------- 화면용 조회 ---------- */
+
+export function isLearned(course: Course, drops: Drop[]) {
+  const done = drops.filter(d => d.completedAt);
+  if (course.outline.length === 0) return false;
+  const ratio = done.length / course.outline.length;
+  const understood = done.filter(d => d.signal === 'understood').length;
+  return ratio >= LEARNED_COMPLETION_RATIO && understood > done.length / 2;
+}
+
+export async function weekLearningDays(userId: string) {
+  const drops = await getStore().listDropsByUser(userId);
+  const today = new Date(kstDate());
+  // 이번 주 = 월요일부터 (KST)
+  const monday = new Date(today);
+  monday.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
+  const days = new Set(drops.filter(d => d.completedAt).map(d => kstDate(d.completedAt!)));
+  return [...days].filter(d => d >= monday.toISOString().slice(0, 10)).length;
+}
+
+export interface TodayItem {
+  course: Course;
+  drop: Drop | null;
+  readToday: boolean;
+  nextTitle?: string;
+}
+
+export async function todayView(user: User): Promise<TodayItem[]> {
+  const store = getStore();
+  const courses = (await store.listCourses(user.id)).filter(c => c.status === 'active');
+  const today = kstDate();
+  const items: TodayItem[] = [];
+  for (const course of courses) {
+    const drops = await store.listDrops(course.id);
+    const next = drops.find(d => !d.completedAt) ?? null;
+    const readToday = drops.some(d => d.completedAt && kstDate(d.completedAt) === today);
+    items.push({ course, drop: next, readToday, nextTitle: next?.title });
+  }
+  return items.sort((a, b) => (b.course.lastReadAt ?? b.course.createdAt).localeCompare(a.course.lastReadAt ?? a.course.createdAt));
+}

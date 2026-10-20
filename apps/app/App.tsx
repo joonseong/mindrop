@@ -1,0 +1,117 @@
+import { type ComponentType, type Ref, useCallback, useEffect, useRef, useState } from 'react';
+import { BackHandler, Linking, Platform, StatusBar, StyleSheet } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import WebViewBase, { type WebViewMessageEvent, type WebViewProps } from 'react-native-webview';
+
+import messaging from '@react-native-firebase/messaging';
+
+import { WEB_URL } from './src/config';
+import { pathFromMessage, requestPush } from './src/push';
+
+/**
+ * 미니커버리 앱 껍데기. 화면은 전부 웹뷰(apps/webview)이고,
+ * 네이티브는 푸시 권한·토큰, 알림 탭 이동, 외부 링크, 시스템 설정 이동만 맡는다.
+ * 웹 쪽 프로토콜: apps/webview/src/lib/client/bridge.ts
+ */
+// react-native-webview 13 타입은 제네릭 기본값(undefined) 때문에 props가 never가 되어 한 번 감싼다
+type WebViewRef = WebViewBase<object>;
+const WebView = WebViewBase as unknown as ComponentType<WebViewProps & { ref?: Ref<WebViewRef> }>;
+
+type WebMessage = { type: 'requestPushPermission'; id: string } | { type: 'openSettings' } | { type: 'haptic' };
+
+const withFrom = (path: string, from: string) => `${WEB_URL}${path}${path.includes('?') ? '&' : '?'}from=${from}`;
+
+export default function App() {
+  const webview = useRef<WebViewRef>(null);
+  const [uri, setUri] = useState(WEB_URL);
+  const [canGoBack, setCanGoBack] = useState(false);
+
+  const reply = useCallback((detail: object) => {
+    const js = `window.dispatchEvent(new CustomEvent('minicovery-native', { detail: ${JSON.stringify(detail)} })); true;`;
+    webview.current?.injectJavaScript(js);
+  }, []);
+
+  // 알림을 탭해 앱이 열리면 해당 Drop으로 이동
+  useEffect(() => {
+    void messaging()
+      .getInitialNotification()
+      .then(message => {
+        const path = pathFromMessage(message?.data);
+        if (path) setUri(withFrom(path, 'push'));
+      });
+    return messaging().onNotificationOpenedApp(message => {
+      const path = pathFromMessage(message.data);
+      if (path) webview.current?.injectJavaScript(`window.location.href = ${JSON.stringify(withFrom(path, 'push'))}; true;`);
+    });
+  }, []);
+
+  // 토큰이 바뀌면 서버에 다시 알린다
+  useEffect(
+    () =>
+      messaging().onTokenRefresh(token => {
+        webview.current?.injectJavaScript(
+          `fetch('/api/me/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pushToken: ${JSON.stringify(token)} }) }); true;`,
+        );
+      }),
+    [],
+  );
+
+  // 안드로이드 뒤로가기는 웹뷰 히스토리부터
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (!canGoBack) return false;
+      webview.current?.goBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [canGoBack]);
+
+  const onMessage = useCallback(
+    async (event: WebViewMessageEvent) => {
+      let message: WebMessage;
+      try {
+        message = JSON.parse(event.nativeEvent.data) as WebMessage;
+      } catch {
+        return;
+      }
+      if (message.type === 'requestPushPermission') {
+        const result = await requestPush();
+        reply({ type: 'pushPermission', id: message.id, ...result });
+      }
+      if (message.type === 'openSettings') void Linking.openSettings();
+    },
+    [reply],
+  );
+
+  return (
+    <SafeAreaProvider>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
+        <WebView
+          ref={webview}
+          source={{ uri }}
+          onMessage={onMessage}
+          onNavigationStateChange={state => setCanGoBack(state.canGoBack)}
+          // 출처 링크 등 외부 주소는 기본 브라우저로 연다
+          onShouldStartLoadWithRequest={request => {
+            if (request.url.startsWith(WEB_URL) || request.url.startsWith('about:')) return true;
+            void Linking.openURL(request.url);
+            return false;
+          }}
+          setSupportMultipleWindows={false}
+          sharedCookiesEnabled
+          allowsBackForwardNavigationGestures
+          pullToRefreshEnabled
+          bounces={false}
+          decelerationRate="normal"
+          applicationNameForUserAgent="Minicovery"
+        />
+      </SafeAreaView>
+    </SafeAreaProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#FFFFFF' },
+});

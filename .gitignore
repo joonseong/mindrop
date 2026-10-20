@@ -1,0 +1,39 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Local env files
+.env
+.env.local
+.env.*.local
+
+# Local dev data (file store)
+.data/
+
+# Firebase local app config
+apps/app/android/app/google-services.json
+apps/app/android/local.properties
+apps/app/ios/Minicovery/GoogleService-Info.plist
+
+# Native build
+apps/app/ios/Pods
+apps/app/ios/build
+apps/app/android/.gradle
+apps/app/android/app/build
+apps/app/android/build
+*.xcuserstate
+xcuserdata/
+
+# Testing / build
+coverage
+.turbo
+.vercel
+.next/
+out/
+build
+dist
+
+# Debug
+npm-debug.log*
+.DS_Store

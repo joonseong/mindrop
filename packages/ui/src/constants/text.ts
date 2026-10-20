@@ -1,0 +1,15 @@
+export const TEXT_CLASS_NAME = {
+  'display-1': 'text-2xl font-bold tracking-[-1px]',
+  'display-2': 'text-xl font-bold tracking-[-0.5px]',
+  'title-1': 'text-base font-bold tracking-[-0.5px]',
+  'title-2': 'text-sm font-bold tracking-[-0.5px]',
+  'body-1': 'text-base font-normal tracking-[-0.5px]',
+  'body-2': 'text-sm font-normal tracking-[-0.5px]',
+  'caption-1': 'text-[13px] leading-[20px] font-normal tracking-[-0.5px]',
+  'label-bold': 'text-[10px] leading-[14px] font-bold tracking-[-0.5px]',
+  'label-regular': 'text-[10px] leading-[14px] font-normal tracking-[-0.5px]',
+  'viewer-xs': 'text-[14px] leading-[18px] font-normal tracking-[-0.5px]',
+  'viewer-s': 'text-[16px] leading-[32px] font-normal tracking-[-0.5px]',
+  'viewer-m': 'text-[22px] leading-[44px] font-normal tracking-[-0.5px]',
+  'viewer-l': 'text-[28px] leading-[52px] font-normal tracking-[-0.5px]',
+};

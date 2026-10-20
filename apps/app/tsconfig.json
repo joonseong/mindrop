@@ -1,0 +1,10 @@
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "types": ["react-native"],
+    // 모노레포 루트의 @types/react 18(웹뷰용)과 섞이지 않게 이 앱의 19를 쓴다
+    "paths": { "react": ["./node_modules/@types/react"], "react/*": ["./node_modules/@types/react/*"] }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["**/node_modules", "**/Pods"]
+}
