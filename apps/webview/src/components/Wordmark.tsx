@@ -1,10 +1,5 @@
-import { Txt } from '@repo/ui';
-
-/** 로고 확정 전 임시 워드마크 (브랜드 작업은 대표 디자인 몫) */
+/** 미니커버리 로고 (원본: ~/Desktop/2026/minicovery/assets/Minicovery_logo.svg, 흰색 → 밝은 화면용 #151517) */
 export function Wordmark() {
-  return (
-    <Txt name="title-1" className="tracking-[-0.5px] text-shape-brand">
-      minicovery
-    </Txt>
-  );
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/logo.svg" alt="Minicovery" width={108} height={20} className="h-5 w-auto" />;
 }

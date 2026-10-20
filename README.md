@@ -1,6 +1,6 @@
 # Minicovery (미니커버리)
 
-궁금한 주제를 하루 3분짜리 코스로 만들어 매일 보내주는 한국어 지식 구독 앱. 기획: `~/Desktop/2026/mindrop/Mindrop_PRD_v0.4.md`
+궁금한 주제를 하루 3분짜리 코스로 만들어 매일 보내주는 한국어 지식 구독 앱. 기획: `~/Desktop/2026/minicovery/Minicovery_PRD_v0.4.md`
 
 ## 구조
 
