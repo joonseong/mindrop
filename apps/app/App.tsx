@@ -3,10 +3,11 @@ import { BackHandler, Linking, Platform, StatusBar, StyleSheet } from 'react-nat
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import WebViewBase, { type WebViewMessageEvent, type WebViewProps } from 'react-native-webview';
 
+import { appleAuth } from '@invertase/react-native-apple-authentication';
 import messaging from '@react-native-firebase/messaging';
 
 import { WEB_URL } from './src/config';
-import { pathFromMessage, requestPush } from './src/push';
+import { pathFromMessage, pushAvailable, requestPush } from './src/push';
 
 /**
  * 미니커버리 앱 껍데기. 화면은 전부 웹뷰(apps/webview)이고,
@@ -17,7 +18,25 @@ import { pathFromMessage, requestPush } from './src/push';
 type WebViewRef = WebViewBase<object>;
 const WebView = WebViewBase as unknown as ComponentType<WebViewProps & { ref?: Ref<WebViewRef> }>;
 
-type WebMessage = { type: 'requestPushPermission'; id: string } | { type: 'openSettings' } | { type: 'haptic' };
+type WebMessage =
+  | { type: 'requestPushPermission'; id: string }
+  | { type: 'appleSignIn'; id: string }
+  | { type: 'openSettings' }
+  | { type: 'haptic' };
+
+/** Apple로 계속하기: 로그인 창을 띄우고 identity token을 웹으로 넘긴다 (서버가 Apple 공개키로 검증) */
+async function signInWithApple(): Promise<{ identityToken?: string; error?: string }> {
+  try {
+    const res = await appleAuth.performRequest({
+      requestedOperation: appleAuth.Operation.LOGIN,
+      requestedScopes: [appleAuth.Scope.EMAIL],
+    });
+    return { identityToken: res.identityToken ?? undefined };
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    return { error: code === appleAuth.Error.CANCELED ? 'canceled' : 'failed' };
+  }
+}
 
 const withFrom = (path: string, from: string) => `${WEB_URL}${path}${path.includes('?') ? '&' : '?'}from=${from}`;
 
@@ -33,6 +52,7 @@ export default function App() {
 
   // 알림을 탭해 앱이 열리면 해당 Drop으로 이동
   useEffect(() => {
+    if (!pushAvailable()) return;
     void messaging()
       .getInitialNotification()
       .then(message => {
@@ -46,15 +66,14 @@ export default function App() {
   }, []);
 
   // 토큰이 바뀌면 서버에 다시 알린다
-  useEffect(
-    () =>
-      messaging().onTokenRefresh(token => {
-        webview.current?.injectJavaScript(
-          `fetch('/api/me/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pushToken: ${JSON.stringify(token)} }) }); true;`,
-        );
-      }),
-    [],
-  );
+  useEffect(() => {
+    if (!pushAvailable()) return;
+    return messaging().onTokenRefresh(token => {
+      webview.current?.injectJavaScript(
+        `fetch('/api/me/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pushToken: ${JSON.stringify(token)} }) }); true;`,
+      );
+    });
+  }, []);
 
   // 안드로이드 뒤로가기는 웹뷰 히스토리부터
   useEffect(() => {
@@ -78,6 +97,10 @@ export default function App() {
       if (message.type === 'requestPushPermission') {
         const result = await requestPush();
         reply({ type: 'pushPermission', id: message.id, ...result });
+      }
+      if (message.type === 'appleSignIn') {
+        const result = await signInWithApple();
+        reply({ type: 'appleSignIn', id: message.id, ...result });
       }
       if (message.type === 'openSettings') void Linking.openSettings();
     },

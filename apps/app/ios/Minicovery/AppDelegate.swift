@@ -15,8 +15,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    // ios/Minicovery/GoogleService-Info.plist 필요 (Firebase 콘솔에서 받음, git에는 올리지 않음)
-    FirebaseApp.configure()
+    // 푸시 알림: ios/Minicovery/GoogleService-Info.plist가 있을 때만 Firebase를 켠다
+    // (Firebase 콘솔에서 받음, git에는 올리지 않음). 없으면 알림만 빠지고 앱은 그대로 동작한다
+    if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+      FirebaseApp.configure()
+    }
 
     let delegate = ReactNativeDelegate()
     let factory = RCTReactNativeFactory(delegate: delegate)

@@ -8,6 +8,7 @@ export interface Store {
   /** 임시 계정 → 가입 계정으로 학습 기록 이전 */
   moveUserData(fromUserId: string, toUserId: string): Promise<void>;
   findUserByEmail(email: string): Promise<User | null>;
+  findUserByAppleSub(sub: string): Promise<User | null>;
   listUsers(): Promise<User[]>;
 
   getCourse(id: string): Promise<Course | null>;

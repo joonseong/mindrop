@@ -36,3 +36,14 @@ export const DAILY_PREMIUM_REALTIME = 2;
 
 /** 알림을 보내지 않는 시간대 (PRD §17.2) */
 export const QUIET_HOURS = { start: '21:00', end: '08:00' };
+
+/** 무료는 코스 1개, Plus는 새 코스 한 달 3개 (2026-10-22 대표 결정) */
+export const FREE_COURSE_LIMIT = 1;
+export const PLUS_MONTHLY_COURSES = 3;
+export const PLUS_PRICE_LABEL = '월 3,900원';
+
+/** 캐릭터 단계: 다 배운 주제 수 기준 */
+export const STAGES = [
+  { key: 'rabbit', name: '토끼', min: 0 },
+  { key: 'cat', name: '고양이', min: 3 },
+] as const;

@@ -1,0 +1,136 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { checkTopic, levelHref } from '@/lib/client/start';
+
+import { MonthlySheet, ReplaceSheet } from '../QuotaSheets';
+import { AppHeader, BottomNav, Main, PrimaryButton, Screen } from '../ui';
+
+type Props = { initialTopic: string; suggestions: string[]; quota: 'ok' | 'free' | 'monthly'; currentTopic?: string; replace?: boolean };
+
+export function StartScreen({ initialTopic, suggestions, quota, currentTopic, replace }: Props) {
+  const router = useRouter();
+  const [topic, setTopic] = useState(initialTopic);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<{ message: string; suggestions: string[] } | null>(null);
+  const [sheet, setSheet] = useState<null | { kind: 'free' | 'monthly'; replaceHref: string }>(null);
+  const trimmed = topic.trim();
+
+  const go = async (input: string) => {
+    if (!input.trim() || busy) return;
+    setBusy(true);
+    setNotice(null);
+    const r = await checkTopic(input.trim());
+    setBusy(false);
+    if (r.status === 'error') {
+      setNotice({ message: '잠시 연결이 불안정해요. 다시 시도해 주세요.', suggestions: [] });
+      return;
+    }
+    if (r.status === 'blocked') {
+      setNotice({ message: r.message ?? '이 주제는 미니커버리에서 다루지 않아요.', suggestions: r.suggestions });
+      return;
+    }
+    if (r.status === 'broad') {
+      router.push(`/start/broad?${new URLSearchParams({ topic: r.topic, s: r.suggestions.join('|'), ...(replace ? { replace: '1' } : {}) })}`);
+      return;
+    }
+    if (quota === 'free' && replace) {
+      router.push(levelHref(r, true));
+      return;
+    }
+    if (quota === 'free') {
+      setSheet({ kind: 'free', replaceHref: levelHref(r, true) });
+      return;
+    }
+    if (quota === 'monthly') {
+      setSheet({ kind: 'monthly', replaceHref: '' });
+      return;
+    }
+    router.push(levelHref(r));
+  };
+
+  return (
+    <Screen>
+      <AppHeader layout="logo" />
+      <Main className="pb-10 pt-8">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-[28px] font-bold leading-9 tracking-[-1px]">
+            요즘 뭐가
+            <br />
+            궁금하세요?
+          </h1>
+          <p className="text-base text-txt-black-secondary">입력한 주제를 하루 3분짜리 코스로 만들어 드려요.</p>
+        </div>
+
+        <form
+          className="mt-8 flex flex-col gap-3"
+          onSubmit={e => {
+            e.preventDefault();
+            void go(topic);
+          }}
+        >
+          <label htmlFor="topic" className="sr-only">
+            궁금한 주제
+          </label>
+          <input
+            id="topic"
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+            maxLength={100}
+            enterKeyHint="go"
+            placeholder="예: 금리가 오르면 환율은 왜 움직일까"
+            className="h-14 w-full rounded-2xl border bg-shape-white px-4 text-base text-txt-black-primary outline-none"
+            style={{ borderColor: trimmed ? '#20967A' : '#DEDFEB' }}
+          />
+          <PrimaryButton disabled={!trimmed} onClick={() => void go(topic)}>
+            {busy ? '주제를 살펴보는 중…' : '코스 만들기'}
+          </PrimaryButton>
+        </form>
+
+        {notice ? (
+          <div className="mc-in mt-4 rounded-2xl bg-shape-depth1 p-4">
+            <p className="text-sm text-txt-black-secondary">{notice.message}</p>
+            {notice.suggestions.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {notice.suggestions.map(s => (
+                  <button key={s} type="button" onClick={() => void go(s)} className="min-h-11 rounded-full bg-shape-white px-4 py-3 text-sm">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <section className="mt-12 flex flex-col gap-3">
+          <h2 className="text-sm font-bold text-txt-black-secondary">이런 주제는 어때요?</h2>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setTopic(s);
+                  void go(s);
+                }}
+                className="mc-press inline-flex min-h-11 items-center rounded-full bg-shape-depth1 px-4 py-3 text-sm text-txt-black-primary"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </section>
+      </Main>
+      <BottomNav active="explore" />
+      <ReplaceSheet
+        open={sheet?.kind === 'free'}
+        onClose={() => setSheet(null)}
+        courseTopic={currentTopic}
+        replaceHref={sheet?.replaceHref ?? '/start'}
+      />
+      <MonthlySheet open={sheet?.kind === 'monthly'} onClose={() => setSheet(null)} />
+    </Screen>
+  );
+}

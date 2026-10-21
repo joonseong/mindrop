@@ -27,6 +27,31 @@ export interface User {
   pushToken?: string;
   /** 사전 구독 신청 (Gate 1 지불 의향 측정) */
   presubscribedAt?: string;
+  /** Apple 로그인 sub */
+  appleSub?: string;
+  /** Plus 구독 시작 시각. 비어 있으면 무료 */
+  plusSince?: string;
+  /** 오늘 Drop을 받을 코스 (KST 날짜별). 하루 한 편 정책 */
+  todayPick?: { date: string; courseId: string };
+  /** 내일 받을 코스. 야간 Batch가 이 코스의 다음 Drop을 미리 만든다 */
+  tomorrowCourseId?: string;
+  /** 다 배운 주제 기록. 코스를 지워도 남는다 (캐릭터 단계 기준) */
+  learned?: LearnedTopic[];
+}
+
+export interface LearnedTopic {
+  topic: string;
+  category: string;
+  courseId: string;
+  at: string;
+}
+
+/** 쉽게 다시 설명 ('조금 헷갈려요') */
+export interface EasyBody {
+  lead: string;
+  daily: string;
+  so: string;
+  takeaway: string;
 }
 
 export interface CourseOutlineItem {
@@ -41,7 +66,8 @@ export interface Course {
   level: Level;
   category: string;
   taskType: TaskType;
-  status: 'generating' | 'active' | 'completed' | 'failed';
+  /** deleted: 무료 사용자가 새 주제로 바꾸며 지운 코스 (학습 기록은 user.learned에 남음) */
+  status: 'generating' | 'active' | 'completed' | 'failed' | 'deleted';
   outline: CourseOutlineItem[];
   /** 코스를 만들 때 함께 생성한 연결 주제 2개 → Map의 Discovered 노드 */
   related: string[];
@@ -89,13 +115,15 @@ export interface Drop {
   batchId?: string;
   /** 사실 검증에 쓰는 근거 문장 (웹 검색 인용) */
   evidence?: string[];
+  /** '조금 헷갈려요'로 만든 쉬운 설명 (한 번만 만든다) */
+  easy?: EasyBody;
 }
 
 export interface UsageLog {
   id: string;
   userId: string;
   at: string;
-  purpose: 'check' | 'curriculum' | 'drop' | 'verify';
+  purpose: 'check' | 'curriculum' | 'drop' | 'verify' | 'easy';
   model: ModelTier;
   mode: GenerationMode;
   inputTokens: number;

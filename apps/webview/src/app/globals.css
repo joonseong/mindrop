@@ -6,23 +6,119 @@
 
 html,
 body {
-  background: #f5f5fd;
+  background: #ffffff;
   color: #151517;
+  letter-spacing: -0.5px;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
 }
 
-@keyframes fade-in {
+input::placeholder {
+  color: #b4b5c1;
+}
+
+@keyframes mc-in {
   from {
     opacity: 0;
     transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
-.animate-fade-in {
-  animation: fade-in 0.35s ease-out both;
+.mc-in {
+  animation: mc-in 0.3s ease-out both;
+}
+
+@keyframes mc-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+.mc-pop {
+  animation: mc-pop 0.45s ease-out both;
+}
+
+@keyframes mc-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.mc-up {
+  animation: mc-up 0.3s ease-out both;
+}
+
+@keyframes mc-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mc-fade {
+  animation: mc-fade 0.2s ease-out both;
+}
+
+@keyframes mc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.mc-pulse {
+  animation: mc-pulse 1.2s ease-in-out infinite;
+}
+
+/* 하단 탭: 누르는 동안 눌렸다가 손을 떼면 튕기듯 돌아온다. 새로 선택된 탭은 커졌다 자리 잡는다 */
+.mc-tab .mc-ic {
+  transition: transform 0.38s cubic-bezier(0.34, 1.8, 0.5, 1);
+}
+.mc-tab:active .mc-ic {
+  transform: scale(0.86);
+  transition-duration: 0.08s;
+}
+@keyframes mc-tab-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  72% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.mc-ic-on {
+  animation: mc-tab-pop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+/* 누르는 버튼 공통 피드백 */
+.mc-press {
+  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
+}
+.mc-press:active {
+  transform: scale(0.98);
+  opacity: 0.9;
 }
 
 @keyframes caret {
@@ -39,4 +135,15 @@ body {
   vertical-align: text-bottom;
   background: #20967a;
   animation: caret 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc-tab .mc-ic,
+  .mc-ic-on,
+  .mc-pop,
+  .mc-up,
+  .mc-in {
+    transition: none;
+    animation: none;
+  }
 }

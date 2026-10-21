@@ -1,12 +1,13 @@
 import { getGenerator } from './ai';
 import { costUsd } from './ai/pricing';
 import type { Metered } from './ai/types';
-import { DAILY_PREMIUM_REALTIME, LEARNED_COMPLETION_RATIO } from './constants';
+import { DAILY_PREMIUM_REALTIME, FREE_COURSE_LIMIT, LEARNED_COMPLETION_RATIO, PLUS_MONTHLY_COURSES, STAGES } from './constants';
 import { formatDropText, isCompleteBody, parseDropText } from './drop-format';
 import { getStore } from './store';
 import type {
   Course,
   Drop,
+  EasyBody,
   ExplainAnswer,
   GenerationMode,
   Level,
@@ -87,11 +88,36 @@ export async function checkTopic(user: User, input: string) {
 
 /* ---------- 코스 ---------- */
 
-export async function canCreateCourse(user: User) {
-  if (!user.anon) return true;
-  const courses = await getStore().listCourses(user.id);
-  // 가입 전 생성은 기기당 코스 1개 (결정, PRD §0.2)
-  return courses.filter(c => c.status !== 'failed').length < 1;
+export const isPlus = (user: User) => Boolean(user.plusSince);
+
+export type Quota = { ok: true } | { ok: false; reason: 'free' | 'monthly' };
+
+/** 무료는 코스 1개, Plus는 구독 뒤 새 코스 한 달 3개 */
+export async function courseQuota(user: User): Promise<Quota> {
+  const courses = (await getStore().listCourses(user.id)).filter(c => c.status !== 'failed');
+  if (!isPlus(user)) {
+    const kept = courses.filter(c => c.status !== 'deleted');
+    return kept.length < FREE_COURSE_LIMIT ? { ok: true } : { ok: false, reason: 'free' };
+  }
+  const month = kstDate().slice(0, 7);
+  const made = courses.filter(c => c.createdAt >= user.plusSince! && kstDate(c.createdAt).slice(0, 7) === month).length;
+  return made < PLUS_MONTHLY_COURSES ? { ok: true } : { ok: false, reason: 'monthly' };
+}
+
+/** 무료 사용자가 새 주제로 바꿀 때: 지금 코스와 Drop은 지우고, 다 배운 기록(user.learned)은 남긴다 */
+export async function deleteFreeCourses(user: User) {
+  const store = getStore();
+  for (const c of await store.listCourses(user.id)) {
+    if (c.status === 'deleted' || c.status === 'failed') continue;
+    c.status = 'deleted';
+    await store.saveCourse(c);
+  }
+  if (user.tomorrowCourseId) {
+    user.tomorrowCourseId = undefined;
+    user.todayPick = undefined;
+    await store.saveUser(user);
+  }
+  await track(user.id, 'course_replaced');
 }
 
 export async function createCourse(
@@ -159,6 +185,11 @@ export async function createCourse(
     await store.saveDrop({ id: newId(), courseId: course.id, userId: user.id, index, title, status: 'pending', sources: [] });
   }
   const first = (await store.listDrops(course.id))[0];
+  // 새 코스는 바로 읽을 수 있게 오늘의 코스로 고른다
+  if (!(await completedToday(user.id))) {
+    user.todayPick = { date: kstDate(), courseId: course.id };
+    await store.saveUser(user);
+  }
   await track(user.id, existing ? 'course_regenerated' : 'course_created', {
     courseId: course.id,
     category: course.category,
@@ -333,26 +364,40 @@ export async function completeDrop(user: User, dropId: string, signal: Understan
   if (!already) await track(user.id, 'drop_completed', { dropId, courseId: course.id, index: drop.index, signal });
 
   // 첫 Drop을 읽은 시각을 기본 알림 시각으로 (PRD §17.2)
-  if (firstEver && !user.notifyTime) {
-    user.notifyTime = nextQuietSafeTime();
-    await store.saveUser(user);
-  }
+  if (firstEver && !user.notifyTime) user.notifyTime = nextQuietSafeTime();
 
-  const drops = await store.listDrops(course.id);
   const isLast = drop.index === course.outline.length - 1;
+  let levelUp = false;
   if (isLast && course.status !== 'completed') {
     course.status = 'completed';
     course.completedAt = nowIso();
     await track(user.id, 'course_completed', { courseId: course.id });
+    const before = stageOf(user).key;
+    user.learned = [...(user.learned ?? []).filter(l => l.courseId !== course.id), {
+      topic: course.topic,
+      category: course.category,
+      courseId: course.id,
+      at: nowIso(),
+    }];
+    levelUp = stageOf(user).key !== before;
   }
   await store.saveCourse(course);
 
-  const next = drops.find(d => d.index === drop.index + 1);
+  // 내일 받을 코스: 이 코스가 끝났으면 다른 진행 중 코스
+  if (!isLast) user.tomorrowCourseId = course.id;
+  else {
+    const other = (await store.listCourses(user.id)).find(c => c.status === 'active' && c.id !== course.id);
+    user.tomorrowCourseId = other?.id;
+  }
+  await store.saveUser(user);
+
   return {
     firstEver,
     courseCompleted: isLast,
-    nextDropId: next?.id,
+    courseId: course.id,
+    levelUp,
     askNotify: firstEver && user.notifyPermission === 'unknown',
+    askSignup: firstEver && user.anon,
   };
 }
 
@@ -402,6 +447,20 @@ export async function weekLearningDays(userId: string) {
   return [...days].filter(d => d >= monday.toISOString().slice(0, 10)).length;
 }
 
+/** 이번 주(월~일, KST) 요일별 학습 여부 */
+export async function weekDone(userId: string): Promise<boolean[]> {
+  const drops = await getStore().listDropsByUser(userId);
+  const today = new Date(kstDate());
+  const monday = new Date(today);
+  monday.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
+  const days = new Set(drops.filter(d => d.completedAt).map(d => kstDate(d.completedAt!)));
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    return days.has(d.toISOString().slice(0, 10));
+  });
+}
+
 export interface TodayItem {
   course: Course;
   drop: Drop | null;
@@ -421,4 +480,129 @@ export async function todayView(user: User): Promise<TodayItem[]> {
     items.push({ course, drop: next, readToday, nextTitle: next?.title });
   }
   return items.sort((a, b) => (b.course.lastReadAt ?? b.course.createdAt).localeCompare(a.course.lastReadAt ?? a.course.createdAt));
+}
+
+/* ---------- 하루 한 편 ---------- */
+
+/** 오늘(KST) 완료한 Drop. 하루에 한 편만 열린다 */
+export async function completedToday(userId: string): Promise<Drop | null> {
+  const today = kstDate();
+  const drops = await getStore().listDropsByUser(userId);
+  return drops.find(d => d.completedAt && kstDate(d.completedAt) === today) ?? null;
+}
+
+export interface CourseNext {
+  course: Course;
+  next: Drop | null;
+  doneCount: number;
+}
+
+export async function activeCourses(userId: string): Promise<CourseNext[]> {
+  const store = getStore();
+  const out: CourseNext[] = [];
+  for (const course of await store.listCourses(userId)) {
+    if (course.status !== 'active') continue;
+    const drops = await store.listDrops(course.id);
+    out.push({ course, next: drops.find(d => !d.completedAt) ?? null, doneCount: drops.filter(d => d.completedAt).length });
+  }
+  return out.sort((a, b) => (b.course.lastReadAt ?? b.course.createdAt).localeCompare(a.course.lastReadAt ?? a.course.createdAt));
+}
+
+/** 오늘 받을 코스: 오늘 고른 코스 → 어제 정해 둔 내일 코스 → 최근 코스 */
+export function pickedCourseId(user: User, items: CourseNext[]): string | undefined {
+  const ids = items.map(i => i.course.id);
+  const today = kstDate();
+  if (user.todayPick?.date === today && ids.includes(user.todayPick.courseId)) return user.todayPick.courseId;
+  if (user.tomorrowCourseId && ids.includes(user.tomorrowCourseId)) return user.tomorrowCourseId;
+  return ids[0];
+}
+
+export async function pickToday(user: User, courseId: string) {
+  const store = getStore();
+  const course = await store.getCourse(courseId);
+  if (!course || course.userId !== user.id || course.status !== 'active') return false;
+  if (await completedToday(user.id)) return false;
+  user.todayPick = { date: kstDate(), courseId };
+  await store.saveUser(user);
+  await track(user.id, 'today_picked', { courseId });
+  return true;
+}
+
+export async function pickTomorrow(user: User, courseId: string) {
+  const course = await getStore().getCourse(courseId);
+  if (!course || course.userId !== user.id || course.status !== 'active') return false;
+  user.tomorrowCourseId = courseId;
+  await getStore().saveUser(user);
+  await track(user.id, 'tomorrow_picked', { courseId });
+  return true;
+}
+
+/**
+ * 이 Drop을 지금 열 수 있는지. 읽은 Drop은 언제든 다시 볼 수 있고,
+ * 새 Drop은 하루 한 편 (오늘 고른 코스의 다음 Drop). 오늘 만든 코스의 첫 Drop은 바로 읽을 수 있다.
+ */
+export async function canOpenDrop(user: User, drop: Drop): Promise<boolean> {
+  if (drop.completedAt) return true;
+  const store = getStore();
+  const course = await store.getCourse(drop.courseId);
+  if (!course || course.status !== 'active') return false;
+  const next = (await store.listDrops(course.id)).find(d => !d.completedAt);
+  if (next?.id !== drop.id) return false;
+  if (drop.index === 0 && kstDate(course.createdAt) === kstDate()) return true;
+  if (await completedToday(user.id)) return false;
+  const picked = pickedCourseId(user, await activeCourses(user.id));
+  return picked === course.id;
+}
+
+/* ---------- 캐릭터 단계 ---------- */
+
+export function stageOf(user: User) {
+  const n = user.learned?.length ?? 0;
+  let stage: (typeof STAGES)[number] = STAGES[0];
+  for (const s of STAGES) if (n >= s.min) stage = s;
+  const next = STAGES.find(s => s.min > n);
+  return { key: stage.key, name: stage.name, learned: n, next: next ? { name: next.name, left: next.min - n, min: next.min } : null };
+}
+
+/* ---------- 조금 헷갈려요: 쉽게 다시 설명 ---------- */
+
+export async function easyExplain(user: User, dropId: string): Promise<EasyBody | null> {
+  const store = getStore();
+  const drop = await store.getDrop(dropId);
+  if (!drop || drop.userId !== user.id || !drop.body) return null;
+  if (drop.easy) return drop.easy;
+  const course = (await store.getCourse(drop.courseId))!;
+  try {
+    const m = await getGenerator().easy({ courseTitle: course.title, title: drop.title, text: formatDropText(drop.body) });
+    await logUsage(user.id, 'easy', m, 'realtime');
+    drop.easy = m.result;
+    drop.signal = 'confused';
+    await store.saveDrop(drop);
+    await track(user.id, 'drop_easy', { dropId });
+    return m.result;
+  } catch (error) {
+    await logFailure(user.id, 'easy', error);
+    return null;
+  }
+}
+
+/* ---------- Plus ---------- */
+
+/** 인앱 결제 연동 전 베타: PLUS_BETA_FREE=true면 결제 없이 Plus를 켠다 */
+export async function grantPlus(user: User) {
+  if (process.env.PLUS_BETA_FREE !== 'true') return false;
+  if (!user.plusSince) {
+    user.plusSince = nowIso();
+    await getStore().saveUser(user);
+    await track(user.id, 'plus_started', { beta: true });
+  }
+  return true;
+}
+
+/** 로그인할 때 이 기기 임시 계정의 다 배운 기록도 계정으로 합친다 (코스·Drop은 store.moveUserData가 옮김) */
+export async function mergeDeviceRecords(device: User, account: User) {
+  if (!device.learned?.length) return;
+  const seen = new Set((account.learned ?? []).map(l => l.courseId));
+  account.learned = [...(account.learned ?? []), ...device.learned.filter(l => !seen.has(l.courseId))];
+  await getStore().saveUser(account);
 }

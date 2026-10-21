@@ -47,6 +47,10 @@ export class SupabaseStore implements Store {
     const rows = await this.many<User>(this.db.from('users').select('data').eq('email', email).limit(1));
     return rows[0] ?? null;
   }
+  async findUserByAppleSub(sub: string) {
+    const rows = await this.many<User>(this.db.from('users').select('data').eq('data->>appleSub', sub).limit(1));
+    return rows[0] ?? null;
+  }
   listUsers() {
     return this.many<User>(this.db.from('users').select('data'));
   }

@@ -1,4 +1,4 @@
-import type { Level, ModelTier, Source, TaskType } from '../types';
+import type { EasyBody, Level, ModelTier, Source, TaskType } from '../types';
 import type { Usage } from './pricing';
 
 export interface TopicCheck {
@@ -67,6 +67,8 @@ export interface Generator {
   ): Promise<Metered<Curriculum>>;
   drop(params: DropParams, on: { status?: (message: string) => void; text?: (delta: string) => void }): Promise<Metered<DropOutput>>;
   verify(text: string, evidence: string[]): Promise<Metered<VerifyOutput>>;
+  /** '조금 헷갈려요': 같은 내용을 일상 예시로 더 쉽게 */
+  easy(params: { courseTitle: string; title: string; text: string }): Promise<Metered<EasyBody>>;
   /** 야간 Batch 제출. mock은 즉시 처리하고 'mock-<n>' id를 돌려준다 */
   submitBatch(items: BatchItem[]): Promise<string>;
   pollBatch(batchId: string): Promise<BatchPoll>;

@@ -22,8 +22,17 @@ export async function submitNightlyBatch() {
   const cutoff = Date.now() - INACTIVE_DAYS * 86_400_000;
   const due: { course: Course; drop: Drop; learned: string[] }[] = [];
 
+  // 하루 한 편: 사용자마다 내일 받을 코스 하나의 다음 Drop만 만든다
+  const byUser = new Map<string, Course[]>();
   for (const course of courses) {
     if (Date.parse(course.lastReadAt ?? course.createdAt) < cutoff) continue;
+    byUser.set(course.userId, [...(byUser.get(course.userId) ?? []), course]);
+  }
+  for (const [userId, list] of byUser) {
+    const user = await store.getUser(userId);
+    const course =
+      list.find(c => c.id === user?.tomorrowCourseId) ??
+      [...list].sort((a, b) => (b.lastReadAt ?? b.createdAt).localeCompare(a.lastReadAt ?? a.createdAt))[0]!;
     const drops = await store.listDrops(course.id);
     const next = drops.find(d => !d.completedAt);
     if (!next || next.status === 'ready' || next.status === 'generating') continue;
@@ -133,11 +142,11 @@ export async function sendDueNotifications(windowMinutes = 10) {
     const events = await store.listEvents(new Date(now.getTime() - 86_400_000).toISOString());
     if (events.some(e => e.userId === user.id && e.name === 'push_sent' && kstDate(e.at) === today)) continue;
 
-    // 가장 최근에 읽은 코스의 다음 Drop
+    // 오늘 받기로 한 코스(어제 고른 내일 코스)의 다음 Drop
     const courses = (await store.listCourses(user.id))
       .filter(c => c.status === 'active')
       .sort((a, b) => (b.lastReadAt ?? '').localeCompare(a.lastReadAt ?? ''));
-    const course = courses[0];
+    const course = courses.find(c => c.id === user.tomorrowCourseId) ?? courses[0];
     if (!course) continue;
     const next = (await store.listDrops(course.id)).find(d => !d.completedAt);
     if (!next || next.status !== 'ready' || !next.body) {

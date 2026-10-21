@@ -1,11 +1,6 @@
-import { AuthForm } from '@/components/AuthForm';
-import { TopBar } from '@/components/TopBar';
+import { SignupScreen } from '@/components/screens/SignupScreen';
 
-export default function SignupPage({ searchParams }: { searchParams: { next?: string; reason?: string } }) {
-  return (
-    <>
-      <TopBar back />
-      <AuthForm mode="signup" next={searchParams.next} reason={searchParams.reason} />
-    </>
-  );
+export default function SignupPage({ searchParams }: { searchParams: { next?: string } }) {
+  const next = searchParams.next?.startsWith('/') ? searchParams.next : '/today';
+  return <SignupScreen next={next} />;
 }

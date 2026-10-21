@@ -43,6 +43,9 @@ export class FileStore implements Store {
   async findUserByEmail(email: string) {
     return Object.values(this.db.users).find(u => u.email === email) ?? null;
   }
+  async findUserByAppleSub(sub: string) {
+    return Object.values(this.db.users).find(u => u.appleSub === sub) ?? null;
+  }
   async listUsers() {
     return Object.values(this.db.users);
   }

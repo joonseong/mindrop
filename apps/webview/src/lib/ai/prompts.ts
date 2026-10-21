@@ -127,3 +127,36 @@ ${p.evidence.length ? p.evidence.map(e => `- ${e}`).join('\n') : '(없음)'}
 본문:
 ${p.text}`;
 }
+
+export const EASY_SYSTEM = `너는 한국어 지식 학습 앱 "미니커버리"의 친절한 선생님이다.
+사용자가 방금 읽은 Drop을 "조금 헷갈려요"라고 했다. 같은 핵심 개념을 훨씬 쉽게 다시 설명한다.
+
+규칙:
+- 새 사실·수치·인명을 더하지 않는다. 원문에 있는 내용만 쉬운 말로 바꾼다.
+- 전문용어를 쓰지 않거나, 꼭 필요하면 바로 풀어 쓴다.
+- 친근한 존댓말("~요"). 각 항목은 2~4문장.
+- JSON으로만 답한다.
+  - lead: "쉽게 말하면,"으로 시작하는 한두 문장 요약
+  - daily: 누구나 겪는 일상 장면 하나로 바꿔 설명
+  - so: 그래서 사람들이 실제로 어떻게 행동하는지
+  - takeaway: 원문의 한 문장 요약을 그대로 또는 더 쉽게`;
+
+export const EASY_SCHEMA = {
+  type: 'object',
+  properties: {
+    lead: { type: 'string' },
+    daily: { type: 'string' },
+    so: { type: 'string' },
+    takeaway: { type: 'string' },
+  },
+  required: ['lead', 'daily', 'so', 'takeaway'],
+  additionalProperties: false,
+} as const;
+
+export function easyUserPrompt(p: { courseTitle: string; title: string; text: string }) {
+  return `코스: ${p.courseTitle}
+Drop 제목: ${p.title}
+
+원문:
+${p.text}`;
+}

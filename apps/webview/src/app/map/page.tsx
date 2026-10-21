@@ -1,110 +1,139 @@
 import Link from 'next/link';
 
-import { Txt } from '@repo/ui';
-
-import { BottomNav } from '@/components/BottomNav';
+import { AppHeader, Badge, BottomNav, Main, Progress, Screen } from '@/components/ui';
+import { CHARACTER } from '@/lib/characters';
 import { currentUser } from '@/lib/session';
-import { isLearned } from '@/lib/service';
-import { getStore } from '@/lib/store';
+import { type MapPlace, mapData } from '@/lib/views';
 
 export const dynamic = 'force-dynamic';
 
-type NodeState = 'discovered' | 'learning' | 'learned';
-interface MapNode {
-  label: string;
-  state: NodeState;
-  href: string;
+function Dot({ p }: { p: MapPlace }) {
+  /* eslint-disable @next/next/no-img-element */
+  if (p.state === 'done') return <img src="/img/flag.png" alt="다 배움" className="h-7 w-7 object-contain" />;
+  if (p.state === 'here') return <img src={CHARACTER.rabbit.still} alt="오늘 받는 코스" className="h-9 w-9 object-contain" />;
+  if (p.state === 'going') return <img src="/img/pin.png" alt="배우는 중" className="h-7 w-7 object-contain" />;
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" role="img" aria-label="다음 추천">
+      <path d="M12 5v14M5 12h14" stroke="#858691" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+  /* eslint-enable @next/next/no-img-element */
 }
-
-const NODE_CLASS: Record<NodeState, string> = {
-  learned: 'bg-shape-brand text-txt-white-primary',
-  learning: 'border-2 border-border-brand bg-shape-white text-txt-point',
-  discovered: 'border border-dashed border-border-button bg-shape-white/60 text-txt-black-tertiary',
-};
 
 export default async function MapPage() {
   const user = await currentUser();
-  const store = getStore();
-  const courses = (await store.listCourses(user.id)).filter(c => c.status === 'active' || c.status === 'completed');
-  const groups = new Map<string, MapNode[]>();
-  const add = (category: string, node: MapNode) => {
-    const list = groups.get(category) ?? [];
-    if (!list.some(n => n.label === node.label)) list.push(node);
-    groups.set(category, list);
-  };
-
-  let learnedCount = 0;
-  for (const course of courses) {
-    const drops = await store.listDrops(course.id);
-    const learned = isLearned(course, drops);
-    if (learned) learnedCount++;
-    add(course.category, { label: course.topic, state: learned ? 'learned' : 'learning', href: `/course/${course.id}` });
-  }
-  // Discovered: 코스를 만들 때 생성한 연결 주제 (PRD §13.2)
-  const taken = new Set(courses.map(c => c.topic));
-  for (const course of courses) {
-    for (const topic of course.related) {
-      if (taken.has(topic)) continue;
-      const q = new URLSearchParams({ topic, level: 'beginner', category: course.category, taskType: course.taskType });
-      add(course.category, { label: topic, state: 'discovered', href: `/course/new?${q}` });
-    }
-  }
-
+  const d = await mapData(user);
+  const ch = CHARACTER[d.stage.key];
   return (
-    <>
-      <header className="flex h-14 items-center px-5 pt-[env(safe-area-inset-top)]">
-        <Txt name="title-1">나의 지도</Txt>
-      </header>
-      <main className="flex flex-1 flex-col px-5 pb-8">
-        {courses.length === 0 ? (
-          <section className="mt-10 flex flex-col items-center text-center">
-            <Txt name="title-1">첫 코스를 시작하면 지도가 자라요</Txt>
-            <Link
-              href="/start"
-              className="mt-5 flex h-12 w-full items-center justify-center rounded-full bg-shape-brand text-sm font-bold text-txt-white-primary"
-            >
-              주제 입력하기
+    <Screen>
+      <AppHeader layout="large" title="내 학습" />
+      <Main className="pb-10 pt-2">
+        <section className="mt-4 flex flex-col gap-4 rounded-2xl bg-shape-depth1 p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex w-full flex-col gap-1">
+              <span className="text-sm font-bold text-txt-point">{ch.name} 단계</span>
+              <span className="text-2xl font-bold tracking-[-1px]">{d.learnedCount}개 주제 다 배움</span>
+              <span className="text-sm text-txt-black-secondary">
+                배우는 중 {d.going}개 · 다음 추천 {d.fog}개
+              </span>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ch.full} alt={`${ch.name} 캐릭터`} className="h-20 w-20 flex-shrink-0 object-contain" />
+          </div>
+          {d.stage.next ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Progress value={d.learnedCount / d.stage.next.min} track="bg-shape-white" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={CHARACTER.cat.still} alt="다음 단계 고양이" className="h-8 w-8 flex-shrink-0 object-contain opacity-50 grayscale" />
+              </div>
+              <p className="text-sm font-semibold">
+                주제 {d.stage.next.left}개만 더 다 배우면 <span className="text-txt-point">{d.stage.next.name}</span>로 성장해요
+              </p>
+            </div>
+          ) : null}
+        </section>
+
+        {d.closest ? (
+          <section className="mt-10 flex flex-col gap-3">
+            <h2 className="text-lg font-bold">배우고 있는 코스</h2>
+            <Link href={`/course/${d.closest.id}`} className="flex flex-col gap-4 rounded-[20px] border-2 border-border-brand p-5">
+              <span className="flex items-start justify-between gap-3">
+                <span className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-txt-black-tertiary">{d.closest.category}</span>
+                  <span className="text-lg font-bold">{d.closest.topic}</span>
+                </span>
+                <Badge>Drop {d.closest.total - d.closest.done}개 남음</Badge>
+              </span>
+              <span className="flex items-center gap-2">
+                <Progress value={d.closest.done / d.closest.total} />
+                <span className="flex-shrink-0 text-sm font-semibold text-txt-black-secondary">
+                  {d.closest.done} / {d.closest.total}
+                </span>
+              </span>
+              <span className="flex h-12 items-center justify-center rounded-full bg-shape-brand text-base font-bold text-txt-white-primary">코스 보기</span>
             </Link>
           </section>
-        ) : (
-          <>
-            <div className="mt-2 flex items-baseline gap-2">
-              <Txt name="display-1">{learnedCount}</Txt>
-              <Txt name="body-2" className="text-txt-black-secondary">
-                개 주제를 알게 됐어요
-              </Txt>
-            </div>
-            <div className="mt-3 flex gap-4">
-              {(['learned', 'learning', 'discovered'] as NodeState[]).map(s => (
-                <span key={s} className="flex items-center gap-1.5">
-                  <span className={`inline-block h-3 w-3 rounded-full ${NODE_CLASS[s]}`} />
-                  <Txt name="caption-1" className="text-txt-black-tertiary">
-                    {s === 'learned' ? '알게 됨' : s === 'learning' ? '배우는 중' : '다음 후보'}
-                  </Txt>
-                </span>
-              ))}
-            </div>
+        ) : null}
 
-            <div className="mt-6 flex flex-col gap-4">
-              {[...groups.entries()].map(([category, nodes]) => (
-                <section key={category} className="rounded-3xl bg-shape-depth1 p-5">
-                  <Txt name="title-2" className="text-txt-black-secondary">
-                    {category}
-                  </Txt>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {nodes.map(n => (
-                      <Link key={n.label} href={n.href} className={`rounded-full px-4 py-2 text-sm ${NODE_CLASS[n.state]}`}>
-                        {n.label}
-                      </Link>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </>
-        )}
-      </main>
-      <BottomNav />
-    </>
+        <section className="mt-10 flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-bold">분야별 학습</h2>
+            <p className="text-sm text-txt-black-tertiary">+ 표시는 배운 주제와 이어지는 다음 추천 주제예요. 누르면 새 코스를 만들어요.</p>
+          </div>
+          {d.regions.length === 0 ? (
+            <p className="rounded-2xl bg-shape-depth1 p-5 text-sm text-txt-black-secondary">첫 코스를 만들면 여기에 배운 주제가 쌓여요.</p>
+          ) : null}
+          {d.regions.map(r => (
+            <article key={r.name} className="flex flex-col gap-4 rounded-[20px] border border-border-div p-5">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="text-lg font-bold">{r.name}</h3>
+                  <span className={r.done ? 'flex-shrink-0 text-sm font-bold text-txt-point' : 'flex-shrink-0 text-sm font-bold text-txt-black-tertiary'}>
+                    {r.done} / {r.places.length}개 배움
+                  </span>
+                </div>
+                <Progress value={r.done / r.places.length} height={6} />
+              </div>
+              <ul className="flex flex-col gap-2">
+                {r.places.map(p => (
+                  <li key={p.name}>
+                    <Link
+                      href={p.href}
+                      className={
+                        p.state === 'fog'
+                          ? 'flex min-h-14 items-center gap-3 rounded-2xl bg-shape-white py-2 pl-2 pr-4'
+                          : 'flex min-h-14 items-center gap-3 rounded-2xl bg-shape-depth1 py-2 pl-2 pr-4'
+                      }
+                    >
+                      <span
+                        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-shape-white"
+                        style={{ border: p.state === 'fog' ? '2px dashed #B4B5C1' : undefined }}
+                      >
+                        <Dot p={p} />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className={p.state === 'fog' ? 'text-base text-txt-black-secondary' : 'text-base font-bold'}>{p.name}</span>
+                        <span
+                          className={
+                            p.state === 'done' ? 'text-sm text-txt-point' : p.state === 'fog' ? 'text-sm text-txt-black-tertiary' : 'text-sm text-txt-black-secondary'
+                          }
+                        >
+                          {p.status}
+                        </span>
+                      </span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m9 5 7 7-7 7" stroke="#B4B5C1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </section>
+      </Main>
+      <BottomNav active="map" />
+    </Screen>
   );
 }

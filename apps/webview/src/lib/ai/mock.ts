@@ -130,6 +130,20 @@ export class MockGenerator implements Generator {
     };
   }
 
+  async easy(params: { courseTitle: string; title: string; text: string }) {
+    await sleep(delay() ? 900 : 0);
+    return {
+      model: 'sonnet' as const,
+      usage: { ...zeroUsage(), inputTokens: 2400, outputTokens: 700 },
+      result: {
+        lead: `쉽게 말하면, "${params.title.replace(/[?？]$/, '')}"는 우리가 매일 겪는 마음의 습관 이야기예요.`,
+        daily: '(가짜 응답) 길에서 만 원을 주웠다가 집에 오는 길에 다시 잃어버렸다고 해 볼게요. 결과만 보면 처음과 같은데, 기분은 오히려 나빠요.',
+        so: '(가짜 응답) 그래서 사람들은 손해를 볼까 봐 새로운 걸 망설이고, 이미 가진 걸 놓치기 싫어해요.',
+        takeaway: '낯선 개념도 일상의 장면 하나와 연결하면 이해할 수 있어요.',
+      },
+    };
+  }
+
   async submitBatch(items: BatchItem[]) {
     const id = `mock-${Date.now()}`;
     this.batches.set(id, items);

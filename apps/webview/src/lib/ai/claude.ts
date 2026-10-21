@@ -5,6 +5,8 @@ import { MODEL_ID, type Usage } from './pricing';
 import {
   CURRICULUM_SYSTEM,
   DROP_SYSTEM,
+  EASY_SCHEMA,
+  EASY_SYSTEM,
   TOPIC_CHECK_SCHEMA,
   TOPIC_CHECK_SYSTEM,
   VERIFY_SCHEMA,
@@ -12,6 +14,7 @@ import {
   curriculumSchema,
   curriculumUserPrompt,
   dropUserPrompt,
+  easyUserPrompt,
   verifyUserPrompt,
 } from './prompts';
 import type { BatchItem, BatchPoll, DropOutput, DropParams, Generator, Metered } from './types';
@@ -227,6 +230,19 @@ export class ClaudeGenerator implements Generator {
       usage: usageOf(message),
       result: { verdict: r.verdict, fixedText: r.fixed_text },
     };
+  }
+
+  async easy(params: { courseTitle: string; title: string; text: string }) {
+    const message = await this.client.messages.create({
+      model: MODEL_ID.sonnet,
+      max_tokens: 2000,
+      system: [{ type: 'text', text: EASY_SYSTEM, cache_control: { type: 'ephemeral' } }],
+      output_config: { format: { type: 'json_schema', schema: EASY_SCHEMA } },
+      messages: [{ role: 'user', content: easyUserPrompt(params) }],
+    });
+    if (message.stop_reason === 'refusal') throw new Error('refusal');
+    const r = JSON.parse(textOf(message));
+    return { model: 'sonnet' as const, usage: usageOf(message), result: { lead: r.lead, daily: r.daily, so: r.so, takeaway: r.takeaway } };
   }
 
   async submitBatch(items: BatchItem[]) {
