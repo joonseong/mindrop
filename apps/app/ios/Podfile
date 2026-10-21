@@ -35,5 +35,13 @@ target 'Minicovery' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    # React Native Firebase(static framework)가 React 헤더를 포함할 수 있게
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        # Xcode 26의 clang에서 fmt 11의 consteval 포맷 문자열이 컴파일되지 않아 C++17로 빌드한다
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17' if target.name == 'fmt'
+      end
+    end
   end
 end

@@ -34,16 +34,17 @@ export const CURRICULUM_SYSTEM = `너는 한국어 지식 학습 앱 "미니커�
 - 한 Drop은 핵심 개념 하나만 다룬다. 앞 Drop을 알아야 이해되는 순서로 놓는다.
 - Drop 제목은 호기심을 끄는 질문이나 짧은 명사구로 쓴다 (예: "손실은 왜 이익보다 크게 느껴질까?").
 - 수준이 "꽤 알아요"면 정의·개요 Drop을 빼고 핵심 원리·응용부터 시작한다.
-- related_topics에는 이 코스를 마친 사람이 이어서 배우면 좋은 연결 주제 2개를 쓴다.
+- related_topics에는 이 코스를 마친 사람이 이어서 배우면 좋은 연결 주제를 정확히 2개 쓴다.
 - JSON으로만 답한다.`;
 
-export function curriculumSchema(dropCount: { min: number; max: number }) {
+/** 구조화 출력은 배열 개수 제한(minItems 2 이상, maxItems)을 지원하지 않아 개수는 프롬프트로 정하고 받은 뒤 확인한다 */
+export function curriculumSchema() {
   return {
     type: 'object',
     properties: {
       course_title: { type: 'string' },
-      drop_titles: { type: 'array', items: { type: 'string' }, minItems: dropCount.min, maxItems: dropCount.max },
-      related_topics: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 2 },
+      drop_titles: { type: 'array', items: { type: 'string' } },
+      related_topics: { type: 'array', items: { type: 'string' } },
     },
     required: ['course_title', 'drop_titles', 'related_topics'],
     additionalProperties: false,
@@ -54,7 +55,7 @@ export function curriculumUserPrompt(p: { topic: string; level: Level; isFirstCo
   const count = p.isFirstCourse ? '5~7개' : '주제 크기에 맞게 5~14개';
   return `주제: ${p.topic}
 수준: ${LEVEL_LABEL[p.level]}
-Drop 개수: ${count}`;
+Drop 개수: ${count} (이 범위를 꼭 지킨다)`;
 }
 
 export const DROP_SYSTEM = `너는 한국어 지식 학습 앱 "미니커버리"의 작가다.

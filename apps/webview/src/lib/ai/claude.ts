@@ -153,7 +153,7 @@ export class ClaudeGenerator implements Generator {
       model: MODEL_ID.opus,
       max_tokens: 4000,
       system: [{ type: 'text', text: CURRICULUM_SYSTEM, cache_control: { type: 'ephemeral' } }],
-      output_config: { effort: 'low', format: { type: 'json_schema', schema: curriculumSchema(range) } },
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: curriculumSchema() } },
       messages: [{ role: 'user', content: curriculumUserPrompt(params) }],
     });
 
@@ -179,10 +179,12 @@ export class ClaudeGenerator implements Generator {
     const message = await stream.finalMessage();
     if (message.stop_reason === 'refusal') throw new Error('refusal');
     const r = JSON.parse(textOf(message));
+    const drops = (r.drop_titles as string[]).filter(Boolean).slice(0, range.max);
+    if (drops.length < range.min) throw new Error(`too few drops: ${drops.length}`);
     return {
       model: 'opus' as const,
       usage: usageOf(message),
-      result: { title: r.course_title, drops: r.drop_titles, related: r.related_topics },
+      result: { title: r.course_title, drops, related: (r.related_topics as string[]).filter(Boolean).slice(0, 2) },
     };
   }
 
