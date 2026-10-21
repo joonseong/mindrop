@@ -14,9 +14,9 @@
    - `PLUS_BETA_FREE=true` (인앱 결제 연동 전 베타)
    - `APPLE_BUNDLE_ID=com.minicovery.app`
    - `FIREBASE_SERVICE_ACCOUNT` (푸시를 쓸 때)
-4. 크론: `vercel.json` — 야간 생성(매일 02:00 KST), 결과 수거(05:30 KST), 알림(10분마다).
-   10분 간격 크론은 Vercel Pro가 필요하다. Hobby면 Supabase pg_cron으로 `/api/cron/notify` 를 부른다.
-5. 배포 주소가 정해지면 `apps/app/src/config.ts` 의 `PROD_URL` 을 그 주소로 바꾼다.
+4. 크론: `vercel.json` — 야간 생성(매일 02:00 KST), 결과 수거(05:30 KST). Hobby 요금제도 되는 하루 1회 크론만 둔다.
+   알림(10분마다)은 Supabase pg_cron + pg_net 으로 `/api/cron/notify` 를 `Authorization: Bearer CRON_SECRET` 으로 부른다.
+5. 앱이 여는 주소는 `apps/app/src/config.ts` 의 `PROD_URL` (`https://minicovery.vercel.app`). 프로젝트 이름이 달라지면 바꾼다.
 
 ## 2. Apple 준비 (대표가 직접)
 
