@@ -9,6 +9,9 @@ body {
   background: #ffffff;
   color: #151517;
   letter-spacing: -0.5px;
+  /* 한국어는 단어 단위로 줄바꿈 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
   overscroll-behavior-y: none;
