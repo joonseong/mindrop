@@ -17,7 +17,7 @@ export function ReplaceConfirm({ courseTopic, replaceHref, onClose }: { courseTo
       </p>
       <div className="mt-5 flex flex-col gap-1 rounded-2xl bg-shape-depth1 px-5 py-4">
         <span className="text-sm font-bold text-txt-point">Plus · {PLUS_PRICE_LABEL}</span>
-        <span className="text-lg font-bold">구독하고 여러 코스를 경험해 보세요</span>
+        <span className="text-lg font-semibold">구독하고 여러 코스를 경험해 보세요</span>
         <span className="text-sm text-txt-black-secondary">지금 코스는 그대로 두고, 새 코스를 한 달에 3개까지 만들 수 있어요.</span>
       </div>
       <PrimaryButton href="/plus" className="mt-6">

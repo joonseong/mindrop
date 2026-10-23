@@ -74,12 +74,12 @@ function Generating() {
     <Screen>
       <AppHeader layout="nav" close="/today" />
       <Main className="pb-6 pt-4">
-        <p className="min-h-5 text-sm font-semibold text-txt-point">{status}</p>
+        <p className="min-h-5 text-sm font-semibold text-txt-black-tertiary">{status}</p>
         <h1 className="mt-1 min-h-8 text-2xl font-bold tracking-[-1px]">{title || params.get('topic')}</h1>
         <ol className="mt-6 flex flex-col gap-2">
           {drops.map((d, i) => (
             <li key={`${i}-${d}`} className="mc-in flex items-start gap-3 rounded-2xl bg-shape-depth1 p-4">
-              <span className="w-5 flex-shrink-0 text-sm font-bold text-txt-point">{i + 1}</span>
+              <span className="w-5 flex-shrink-0 text-sm font-semibold text-txt-black-tertiary">{i + 1}</span>
               <span className="text-sm font-semibold">{d}</span>
             </li>
           ))}

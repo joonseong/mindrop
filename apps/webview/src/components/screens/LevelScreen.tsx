@@ -20,7 +20,7 @@ export function LevelScreen({ topic, category, taskType, replace }: { topic: str
     <Screen>
       <AppHeader layout="nav" back />
       <Main className="pb-6 pt-4">
-        <p className="text-sm font-semibold text-txt-point">{topic}</p>
+        <p className="text-sm font-semibold text-txt-black-tertiary">{topic}</p>
         <h1 className="mt-1 text-2xl font-bold tracking-[-1px]">어느 정도 알고 있나요?</h1>
         <p className="mt-2 text-base text-txt-black-secondary">고른 수준에 맞춰 첫 Drop의 깊이를 정해요.</p>
         <div className="mt-8 flex flex-col gap-3">
@@ -33,7 +33,7 @@ export function LevelScreen({ topic, category, taskType, replace }: { topic: str
               className="mc-press flex items-center justify-between gap-4 rounded-2xl border border-border-button bg-shape-white p-5"
             >
               <span className="flex flex-col gap-1">
-                <span className="text-lg font-bold text-txt-black-primary">{l.label}</span>
+                <span className="text-lg font-semibold text-txt-black-primary">{l.label}</span>
                 <span className="text-sm text-txt-black-tertiary">{l.desc}</span>
               </span>
               <IconArrow />

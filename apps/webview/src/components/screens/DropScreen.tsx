@@ -110,7 +110,7 @@ export function DropScreen({ initialDrop, courseTitle, total }: { initialDrop: D
     <Screen className="relative">
       <AppHeader layout="nav" title={courseTitle} close="/today" divider />
       <Main className="pb-8 pt-6">
-        <p className="text-sm font-semibold text-txt-point">
+        <p className="text-sm font-semibold text-txt-black-tertiary">
           Drop {drop.index + 1} / {total}
         </p>
         <h1 className="mt-2 text-2xl font-bold tracking-[-1px]">{drop.title}</h1>
@@ -123,24 +123,24 @@ export function DropScreen({ initialDrop, courseTitle, total }: { initialDrop: D
             {phase === 'failed' ? <OutlineButton onClick={() => setAttempt(a => a + 1)}>다시 만들기</OutlineButton> : null}
           </div>
         ) : (
-          <article className="mt-8 flex flex-col gap-8">
+          <article className="mt-6 flex flex-col gap-7">
             {body.hook ? (
-              <p className="whitespace-pre-line text-lg font-semibold leading-8">{body.hook}</p>
+              <p className="whitespace-pre-line text-lg font-semibold leading-7">{body.hook}</p>
             ) : streaming ? (
               <Loading label={status} />
             ) : null}
             {SECTIONS.map(s =>
               body[s.key] ? (
                 <section key={s.key} className="flex flex-col gap-2">
-                  <h2 className="text-sm font-bold text-txt-point">{s.label}</h2>
-                  <p className="whitespace-pre-line text-base leading-8">{body[s.key]}</p>
+                  <h2 className="text-sm font-bold text-txt-black-secondary">{s.label}</h2>
+                  <p className="whitespace-pre-line text-base leading-7">{body[s.key]}</p>
                 </section>
               ) : null,
             )}
             {body.takeaway ? (
               <section className="flex flex-col gap-2 rounded-2xl bg-shape-depth1 p-5">
-                <h2 className="text-sm font-bold text-txt-point">한 문장으로</h2>
-                <p className={streaming ? 'streaming-caret text-lg font-bold' : 'text-lg font-bold'}>{body.takeaway}</p>
+                <h2 className="text-sm font-bold text-txt-black-secondary">한 문장으로</h2>
+                <p className={streaming ? 'streaming-caret text-lg font-semibold' : 'text-lg font-semibold'}>{body.takeaway}</p>
               </section>
             ) : null}
           </article>
@@ -173,7 +173,7 @@ export function DropScreen({ initialDrop, courseTitle, total }: { initialDrop: D
             <div ref={sentinel} />
             {!rereading ? (
               <section className="mt-10 flex flex-col gap-4">
-                <h2 className="text-center text-lg font-bold">오늘 Drop, 어땠어요?</h2>
+                <h2 className="text-center text-lg font-semibold">오늘 Drop, 어땠어요?</h2>
                 <div className="grid grid-cols-2 gap-2">
                   <PrimaryButton onClick={() => void complete()}>{completing ? '저장하는 중…' : '이해했어요'}</PrimaryButton>
                   <OutlineButton href={`/drop/${drop.id}/easy`}>조금 헷갈려요</OutlineButton>

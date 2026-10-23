@@ -48,19 +48,19 @@ export function EasyScreen(props: { dropId: string; title: string; courseTitle: 
         </p>
         <h1 className="mt-3 text-2xl font-bold tracking-[-1px]">{props.title}</h1>
         {easy ? (
-          <article className="mt-8 flex flex-col gap-8">
-            <p className="text-lg font-semibold leading-8">{easy.lead}</p>
+          <article className="mt-6 flex flex-col gap-7">
+            <p className="text-lg font-semibold leading-7">{easy.lead}</p>
             <section className="flex flex-col gap-2">
-              <h2 className="text-sm font-bold text-txt-point">일상으로 바꿔 보면</h2>
-              <p className="text-base leading-8">{easy.daily}</p>
+              <h2 className="text-sm font-bold text-txt-black-secondary">일상으로 바꿔 보면</h2>
+              <p className="text-base leading-7">{easy.daily}</p>
             </section>
             <section className="flex flex-col gap-2">
-              <h2 className="text-sm font-bold text-txt-point">그래서 사람들은</h2>
-              <p className="text-base leading-8">{easy.so}</p>
+              <h2 className="text-sm font-bold text-txt-black-secondary">그래서 사람들은</h2>
+              <p className="text-base leading-7">{easy.so}</p>
             </section>
             <section className="flex flex-col gap-2 rounded-2xl bg-shape-depth1 p-5">
-              <h2 className="text-sm font-bold text-txt-point">한 문장으로</h2>
-              <p className="text-lg font-bold">{easy.takeaway}</p>
+              <h2 className="text-sm font-bold text-txt-black-secondary">한 문장으로</h2>
+              <p className="text-lg font-semibold">{easy.takeaway}</p>
             </section>
           </article>
         ) : failed ? (

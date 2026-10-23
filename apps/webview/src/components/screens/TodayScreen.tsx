@@ -7,9 +7,10 @@ import { useState } from 'react';
 import { postJson } from '@/lib/client/ndjson';
 import type { CourseCard } from '@/lib/views';
 
-import { AppHeader, BottomNav, CHARACTER, IconCheck, IconClose, Main, PrimaryButton, Screen, cx } from '../ui';
+import { AppHeader, BottomNav, CHARACTER, IconClose, IconSwap, Main, PrimaryButton, Screen } from '../ui';
 
 type Props = {
+  dateLabel: string;
   cards: CourseCard[];
   pickedId?: string;
   doneToday: { dropId: string; title: string; courseId: string } | null;
@@ -19,12 +20,17 @@ type Props = {
   showNotifyBanner: boolean;
 };
 
-export function TodayScreen({ cards, pickedId, doneToday, tomorrow, weekDays, stage, showNotifyBanner }: Props) {
+const CHIPS = ['행동경제학', '진화론', '와인'];
+
+/** 오늘: 한 장 카드(읽을 Drop) · 다 읽음 · 코스 없음 세 상태. 머리(날짜·제목·캐릭터)는 같다 */
+export function TodayScreen({ dateLabel, cards, pickedId, doneToday, tomorrow, weekDays, stage, showNotifyBanner }: Props) {
   const router = useRouter();
   const [picked, setPicked] = useState(pickedId ?? cards[0]?.id);
   const [banner, setBanner] = useState(showNotifyBanner);
   const [busy, setBusy] = useState(false);
   const cur = cards.find(c => c.id === picked);
+  const others = cards.filter(c => c.id !== picked);
+  const ch = CHARACTER[stage.key];
 
   const read = async () => {
     if (!cur?.nextDropId || busy) return;
@@ -38,15 +44,16 @@ export function TodayScreen({ cards, pickedId, doneToday, tomorrow, weekDays, st
       <AppHeader layout="logo" settings />
       <Main className="pb-8 pt-4">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-[28px] font-bold leading-9 tracking-[-1px]">오늘의 Drop</h1>
-          <Link
-            href="/map"
-            data-badge
-            className="flex flex-shrink-0 items-center gap-1 rounded-full bg-shape-depth1 py-1 pl-1 pr-3 text-[13px] font-semibold leading-5 text-txt-point"
-          >
+          <div className="flex min-w-0 flex-col gap-1">
+            <p className="text-sm text-txt-black-tertiary">
+              {dateLabel}
+              {weekDays ? ` · 이번 주 ${weekDays}일째` : ''}
+            </p>
+            <h1 className="text-[28px] font-bold leading-9 tracking-[-1px]">오늘의 Drop</h1>
+          </div>
+          <Link href="/map" aria-label={`${ch.name} 단계 · 내 학습 보기`} className="-my-5 -mr-2 flex-shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={CHARACTER[stage.key].still} alt={`${CHARACTER[stage.key].name} 단계`} className="h-8 w-8 object-contain" />
-            이번 주 {weekDays}일
+            <img src={ch.still} alt="" className="h-24 w-24 object-contain" />
           </Link>
         </div>
 
@@ -71,87 +78,118 @@ export function TodayScreen({ cards, pickedId, doneToday, tomorrow, weekDays, st
         ) : null}
 
         {doneToday ? (
-          <>
-            <div className="mt-6 flex flex-col rounded-2xl border border-border-div p-5">
-              <span className="flex items-center gap-1.5 text-base font-bold text-txt-black-secondary">
-                <IconCheck />
-                오늘 Drop 완료
-              </span>
-              <Link href={`/drop/${doneToday.dropId}`} className="mt-1 text-sm text-txt-black-tertiary underline">
-                {doneToday.title} 다시 보기
-              </Link>
+          <section className="mt-5 flex flex-col rounded-2xl bg-shape-depth1 px-5 pb-5 pt-6">
+            <div className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/img/check.png" alt="" className="h-7 w-7 object-contain" />
+              <p className="text-sm font-semibold text-txt-black-secondary">오늘 Drop을 다 읽었어요</p>
             </div>
-            {tomorrow ? (
-              <div className="mt-3 flex flex-col gap-0.5 rounded-2xl bg-shape-depth1 p-5">
-                <span className="text-sm font-semibold text-txt-black-tertiary">내일의 Drop · {tomorrow.topic}</span>
-                <span className="text-lg font-bold">{tomorrow.nextTitle}</span>
-                <span className="mt-1 text-sm text-txt-black-tertiary">내일 아침에 열려요. Drop은 하루 한 편이에요.</span>
+            <h2 className="mt-3 text-2xl font-bold tracking-[-1px]">
+              내일 아침에
+              <br />
+              다음 Drop이 열려요
+            </h2>
+            {tomorrow?.nextTitle ? (
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-shape-white py-4 pl-4 pr-1">
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-txt-black-tertiary">내일의 Drop · {tomorrow.topic}</span>
+                  <span className="text-base font-semibold">{tomorrow.nextTitle}</span>
+                </span>
+                <Link href={`/drop/${doneToday.dropId}/done`} aria-label="내일 받을 코스 바꾸기" className="flex h-11 w-11 flex-shrink-0 items-center justify-center">
+                  <IconSwap />
+                </Link>
               </div>
             ) : null}
-          </>
-        ) : cards.length ? (
+            <Link
+              href={`/drop/${doneToday.dropId}`}
+              className="mc-press mt-5 flex h-14 items-center justify-center rounded-full border border-border-button bg-shape-white text-base font-semibold"
+            >
+              오늘 읽은 Drop 다시 보기
+            </Link>
+          </section>
+        ) : cur ? (
           <>
-            <p className="mt-2 text-base text-txt-black-secondary">오늘 받을 코스를 하나 골라 주세요.</p>
-            <div role="radiogroup" aria-label="오늘 받을 코스" className="mt-5 flex flex-col gap-2">
-              {cards.map(c => {
-                const on = c.id === picked;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => setPicked(c.id)}
-                    className={cx(
-                      'mc-press flex w-full items-center gap-3 rounded-2xl border-2 p-4 text-left',
-                      on ? 'border-border-brand bg-shape-depth1' : 'border-border-div bg-shape-white',
-                    )}
-                  >
-                    <span
-                      className="h-6 w-6 flex-shrink-0 rounded-full bg-shape-white"
-                      style={{ border: on ? '7px solid #20967A' : '2px solid #DEDFEB' }}
-                    />
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-sm font-semibold text-txt-black-tertiary">
-                        {c.topic} · Drop {c.done + 1} / {c.total}
-                        {c.ready ? ' · 준비됨' : ''}
-                      </span>
-                      <span className="text-lg font-bold">{c.nextTitle}</span>
+            <section className="mt-5 flex flex-col rounded-2xl bg-shape-brand px-5 pb-5 pt-6 text-txt-white-primary">
+              {cur.ready ? (
+                <span
+                  data-badge
+                  className="self-start rounded-full bg-shape-white px-3 py-1 text-[13px] font-bold leading-5 text-txt-point"
+                >
+                  준비됨
+                </span>
+              ) : null}
+              <p className={`${cur.ready ? 'mt-3' : ''} text-sm font-semibold`}>
+                {cur.topic} · Drop {cur.done + 1} / {cur.total}
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-[-1px]">{cur.nextTitle}</h2>
+              <div className="mt-4 flex items-center gap-2">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[rgba(255,255,255,0.3)]">
+                  <div className="h-full rounded-full bg-shape-white" style={{ width: `${Math.round((cur.done / Math.max(1, cur.total)) * 100)}%` }} />
+                </div>
+                <span className="text-sm font-semibold">{cur.total - cur.done}편 남음</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => void read()}
+                className="mc-press mt-5 flex h-14 items-center justify-center rounded-full bg-shape-white text-base font-semibold text-txt-point"
+              >
+                {busy ? '여는 중…' : '읽기 시작'}
+              </button>
+            </section>
+            {!cur.ready ? <p className="mt-3 text-sm text-txt-black-tertiary">이 코스는 지금 만들어서 30초쯤 걸려요.</p> : null}
+
+            <section className="mt-8 flex flex-col gap-2">
+              {others.length ? <h2 className="text-sm font-bold text-txt-black-secondary">다른 코스로 받기</h2> : null}
+              {others.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setPicked(c.id)}
+                  className="mc-press flex min-h-16 w-full items-center gap-3 rounded-2xl border border-border-div bg-shape-white py-3 pl-5 pr-4 text-left"
+                >
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-sm text-txt-black-tertiary">
+                      {c.topic} · Drop {c.done + 1} / {c.total}
                     </span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-3 text-sm text-txt-black-tertiary">
-              {cur?.ready ? 'Drop은 하루 한 편이에요. 어제 고른 코스는 미리 준비해 뒀어요.' : 'Drop은 하루 한 편이에요. 이 코스는 지금 만들어서 30초쯤 걸려요.'}
-            </p>
-            <PrimaryButton className="mt-6 flex-shrink-0" onClick={read}>
-              {cur ? `${cur.topic} Drop 읽기` : 'Drop 읽기'}
-            </PrimaryButton>
+                    <span className="text-base font-semibold">{c.nextTitle}</span>
+                  </span>
+                  <span className="flex-shrink-0 text-sm font-semibold text-txt-point">바꾸기</span>
+                </button>
+              ))}
+            </section>
           </>
         ) : (
-          <EmptyCard stage={stage.key} />
+          <section className="mt-5 flex flex-col rounded-2xl bg-shape-depth1 px-5 pb-5 pt-6">
+            <p className="text-sm font-semibold text-txt-black-tertiary">진행 중인 코스가 없어요</p>
+            <h2 className="mt-1 text-2xl font-bold tracking-[-1px]">
+              요즘 궁금한 걸
+              <br />
+              코스로 만들어 볼까요?
+            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {CHIPS.map(t => (
+                <Link
+                  key={t}
+                  href={`/start?topic=${encodeURIComponent(t)}`}
+                  className="inline-flex min-h-11 items-center rounded-full bg-shape-white px-4 py-3 text-sm"
+                >
+                  {t}
+                </Link>
+              ))}
+            </div>
+            <PrimaryButton href="/start" className="mt-5">
+              주제 입력하기
+            </PrimaryButton>
+          </section>
         )}
 
-        <Link href="/start" className="mt-4 flex min-h-11 items-center self-center px-3 text-sm text-txt-black-tertiary underline">
-          새 주제로 코스 만들기
-        </Link>
+        {cur || doneToday ? (
+          <Link href="/start" className="mt-4 flex min-h-11 items-center self-center px-3 text-sm text-txt-black-tertiary underline">
+            새 주제로 코스 만들기
+          </Link>
+        ) : null}
       </Main>
       <BottomNav active="today" />
     </Screen>
-  );
-}
-
-function EmptyCard({ stage }: { stage: 'rabbit' | 'cat' }) {
-  return (
-    <section className="mt-6 flex flex-col items-center rounded-2xl bg-shape-depth1 px-5 py-6 text-center">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={CHARACTER[stage].still} alt="" className="aspect-square w-[min(120px,32vw)] object-contain" />
-      <h2 className="mt-3 text-lg font-bold">진행 중인 코스가 없어요</h2>
-      <p className="mt-1 text-sm text-txt-black-secondary">요즘 궁금한 걸 코스로 만들어 볼까요?</p>
-      <PrimaryButton href="/start" className="mt-5 !h-12 !text-sm">
-        주제 입력하기
-      </PrimaryButton>
-    </section>
   );
 }

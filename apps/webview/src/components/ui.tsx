@@ -122,10 +122,10 @@ export function AppHeader({ layout = 'nav', title, back, close, settings, divide
           // eslint-disable-next-line @next/next/no-img-element
           <img src="/logo.svg" alt="Minicovery" width={86} height={16} className="ml-3 block h-4 w-auto" />
         ) : null}
-        {layout === 'large' ? <h1 className="ml-3 text-lg font-bold">{title}</h1> : null}
+        {layout === 'large' ? <h1 className="ml-3 text-lg font-semibold">{title}</h1> : null}
       </div>
       {layout === 'nav' && title ? (
-        <p className="absolute left-16 right-16 truncate text-center text-lg font-bold">{title}</p>
+        <p className="absolute left-16 right-16 truncate text-center text-lg font-semibold">{title}</p>
       ) : null}
       <div className="flex min-w-12 items-center justify-end">
         {settings ? (
@@ -205,7 +205,7 @@ export function Footer({ children, className }: { children: ReactNode; className
 
 /* ---------- 버튼 ---------- */
 
-const PRIMARY = 'mc-press flex h-14 w-full items-center justify-center rounded-full bg-shape-brand text-base font-bold text-txt-white-primary';
+const PRIMARY = 'mc-press flex h-14 w-full items-center justify-center rounded-full bg-shape-brand text-base font-semibold text-txt-white-primary';
 const DISABLED = 'flex h-14 w-full items-center justify-center rounded-full bg-shape-depth2 text-base font-semibold text-txt-black-tertiary';
 const TEXT_BTN = 'flex h-12 w-full items-center justify-center text-sm font-semibold text-txt-black-tertiary';
 const OUTLINE =

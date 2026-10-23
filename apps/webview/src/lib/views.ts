@@ -42,7 +42,10 @@ export async function todayData(user: User) {
   const doneDrop = await completedToday(user.id);
   const week = await weekDone(user.id);
   const tomorrowId = user.tomorrowCourseId && cards.some(c => c.id === user.tomorrowCourseId) ? user.tomorrowCourseId : cards[0]?.id;
+  const now = new Date(Date.now() + 9 * 3600_000);
+  const dateLabel = `${now.getUTCMonth() + 1}월 ${now.getUTCDate()}일 ${'일월화수목금토'[now.getUTCDay()]}요일`;
   return {
+    dateLabel,
     cards,
     pickedId: pickedCourseId(user, items),
     doneToday: doneDrop ? { dropId: doneDrop.id, title: doneDrop.title, courseId: doneDrop.courseId } : null,

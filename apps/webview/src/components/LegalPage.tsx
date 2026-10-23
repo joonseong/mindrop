@@ -8,7 +8,7 @@ export function LegalPage({ title, updated, sections }: { title: string; updated
         <p className="text-sm text-txt-black-tertiary">시행일 {updated}</p>
         {sections.map(s => (
           <section key={s.h} className="flex flex-col gap-2">
-            <h2 className="text-lg font-bold">{s.h}</h2>
+            <h2 className="text-lg font-semibold">{s.h}</h2>
             {s.p.map(p => (
               <p key={p} className="text-base leading-7 text-txt-black-secondary">
                 {p}

@@ -31,14 +31,14 @@ export default async function MapPage() {
         <section className="mt-4 flex flex-col gap-4 rounded-2xl bg-shape-depth1 p-5">
           <div className="flex items-center gap-4">
             <div className="flex w-full flex-col gap-1">
-              <span className="text-sm font-bold text-txt-point">{ch.name} 단계</span>
+              <span className="text-sm font-semibold text-txt-black-tertiary">{ch.name} 단계</span>
               <span className="text-2xl font-bold tracking-[-1px]">{d.learnedCount}개 주제 다 배움</span>
               <span className="text-sm text-txt-black-secondary">
                 배우는 중 {d.going}개 · 다음 추천 {d.fog}개
               </span>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ch.full} alt={`${ch.name} 캐릭터`} className="h-20 w-20 flex-shrink-0 object-contain" />
+            <img src={ch.full} alt={`${ch.name} 캐릭터`} className="-my-3 -mr-2 h-[120px] w-[120px] flex-shrink-0 object-contain" />
           </div>
           {d.stage.next ? (
             <div className="flex flex-col gap-2">
@@ -56,12 +56,12 @@ export default async function MapPage() {
 
         {d.closest ? (
           <section className="mt-10 flex flex-col gap-3">
-            <h2 className="text-lg font-bold">배우고 있는 코스</h2>
+            <h2 className="text-lg font-semibold">배우고 있는 코스</h2>
             <Link href={`/course/${d.closest.id}`} className="flex flex-col gap-4 rounded-[20px] border-2 border-border-brand p-5">
               <span className="flex items-start justify-between gap-3">
                 <span className="flex flex-col gap-1">
                   <span className="text-sm font-semibold text-txt-black-tertiary">{d.closest.category}</span>
-                  <span className="text-lg font-bold">{d.closest.topic}</span>
+                  <span className="text-lg font-semibold">{d.closest.topic}</span>
                 </span>
                 <Badge>Drop {d.closest.total - d.closest.done}개 남음</Badge>
               </span>
@@ -71,14 +71,14 @@ export default async function MapPage() {
                   {d.closest.done} / {d.closest.total}
                 </span>
               </span>
-              <span className="flex h-12 items-center justify-center rounded-full bg-shape-brand text-base font-bold text-txt-white-primary">코스 보기</span>
+              <span className="flex h-12 items-center justify-center rounded-full bg-shape-brand text-base font-semibold text-txt-white-primary">코스 보기</span>
             </Link>
           </section>
         ) : null}
 
         <section className="mt-10 flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold">분야별 학습</h2>
+            <h2 className="text-lg font-semibold">분야별 학습</h2>
             <p className="text-sm text-txt-black-tertiary">+ 표시는 배운 주제와 이어지는 다음 추천 주제예요. 누르면 새 코스를 만들어요.</p>
           </div>
           {d.regions.length === 0 ? (
@@ -88,7 +88,7 @@ export default async function MapPage() {
             <article key={r.name} className="flex flex-col gap-4 rounded-[20px] border border-border-div p-5">
               <div className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-lg font-bold">{r.name}</h3>
+                  <h3 className="text-lg font-semibold">{r.name}</h3>
                   <span className={r.done ? 'flex-shrink-0 text-sm font-bold text-txt-point' : 'flex-shrink-0 text-sm font-bold text-txt-black-tertiary'}>
                     {r.done} / {r.places.length}개 배움
                   </span>

@@ -25,6 +25,8 @@ export function DropDoneScreen(props: {
   const [sheet, setSheet] = useState<null | 'list' | 'confirm'>(null);
   const cur = props.courses.find(c => c.id === tomorrow);
   const days = props.week.filter(Boolean).length;
+  // 오늘 요일 (KST, 월=0)
+  const todayIdx = (new Date(Date.now() + 9 * 3600_000).getUTCDay() + 6) % 7;
 
   const save = async () => {
     if (draft && draft !== tomorrow) {
@@ -49,36 +51,29 @@ export function DropDoneScreen(props: {
           </p>
         </section>
 
-        <section className="mt-8 flex flex-col gap-5 rounded-2xl bg-shape-depth1 p-5">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-bold text-txt-black-secondary">이번 주 학습 {days}일</p>
-              <p className="flex-shrink-0 text-sm font-semibold text-txt-point">{days} / 7</p>
-            </div>
-            <div className="flex">
-              <Progress value={days / 7} />
-            </div>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
+        <section className="mt-8 flex flex-col items-center gap-3">
+          <div className="relative grid w-full grid-cols-7">
+            <span aria-hidden="true" className="absolute left-[7%] right-[7%] top-3 h-1 rounded-full bg-shape-depth2" />
             {LABELS.map((l, i) => (
-              <div key={l} className="flex flex-col items-center gap-1">
+              <div key={l} className="relative flex flex-col items-center gap-1.5">
                 {props.week[i] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src="/img/check.png" alt="학습함" className="-m-px h-[30px] w-[30px] object-contain" />
                 ) : (
-                  <span className="h-7 w-7 rounded-full border border-border-button bg-shape-white" />
+                  <span className="h-7 w-7 rounded-full border-2 border-shape-depth2 bg-shape-white" />
                 )}
-                <span className="text-sm text-txt-black-tertiary">{l}</span>
+                <span className={i === todayIdx ? 'text-sm font-bold text-txt-point' : 'text-sm text-txt-black-tertiary'}>{l}</span>
               </div>
             ))}
           </div>
+          <p className="mt-1 text-center text-sm text-txt-black-secondary">이번 주 {days}일째 학습했어요. 내일도 한 편이 기다려요.</p>
         </section>
 
         {cur ? (
-          <section className="mt-3 flex items-center gap-2 rounded-2xl border border-border-div py-4 pl-5 pr-1">
+          <section className="mt-8 flex items-center gap-2 rounded-2xl border border-border-div py-4 pl-5 pr-1">
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="text-sm font-semibold text-txt-black-tertiary">내일의 Drop · {cur.topic}</span>
-              <span className="text-lg font-bold">{cur.title}</span>
+              <span className="text-lg font-semibold">{cur.title}</span>
             </span>
             <button
               type="button"
@@ -126,7 +121,7 @@ export function DropDoneScreen(props: {
                       <span className="text-sm font-semibold text-txt-black-tertiary">
                         {c.topic} · Drop {c.index + 1} / {c.total}
                       </span>
-                      <span className="text-lg font-bold">{c.title}</span>
+                      <span className="text-lg font-semibold">{c.title}</span>
                     </span>
                   </button>
                 );
@@ -137,7 +132,7 @@ export function DropDoneScreen(props: {
                     <IconPlus color="#18715B" />
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-lg font-bold text-txt-point">새 주제로 바꾸기</span>
+                    <span className="text-lg font-semibold text-txt-point">새 주제로 바꾸기</span>
                     <span className="text-sm text-txt-black-tertiary">지금 코스는 프로필에 남아서 언제든 이어 볼 수 있어요.</span>
                   </span>
                 </a>
@@ -151,7 +146,7 @@ export function DropDoneScreen(props: {
                     <IconPlus color="#18715B" />
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-lg font-bold text-txt-point">새 주제로 바꾸기</span>
+                    <span className="text-lg font-semibold text-txt-point">새 주제로 바꾸기</span>
                     <span className="text-sm text-txt-black-tertiary">무료는 코스 1개라 지금 코스 대신 새 코스를 만들어요.</span>
                   </span>
                 </button>

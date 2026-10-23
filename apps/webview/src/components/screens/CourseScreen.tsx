@@ -36,7 +36,7 @@ export function CourseScreen(props: {
     <Screen>
       <AppHeader layout="nav" back />
       <Main className="pb-6 pt-4">
-        <p className="text-sm font-semibold text-txt-point">{props.meta}</p>
+        <p className="text-sm font-semibold text-txt-black-tertiary">{props.meta}</p>
         <h1 className="mt-1 text-2xl font-bold tracking-[-1px]">{props.title}</h1>
         <div className="mt-4 flex items-center gap-3">
           <Progress value={done / Math.max(1, total)} />

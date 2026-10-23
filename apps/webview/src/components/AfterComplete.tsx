@@ -72,7 +72,7 @@ export function AfterComplete({ result, dropId }: { result: CompleteResult | nul
 
       <Sheet open={step === 'signup'} labelledBy="signupTitle">
         <div className="mt-6 flex flex-col gap-1 text-center">
-          <p className="text-sm font-semibold text-txt-point">첫 Drop을 읽었어요</p>
+          <p className="text-sm font-semibold text-txt-black-tertiary">첫 Drop을 읽었어요</p>
           <h2 id="signupTitle" className="text-2xl font-bold tracking-[-1px]">
             학습 기록을 저장할까요?
           </h2>

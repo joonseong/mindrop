@@ -51,7 +51,7 @@ export function BroadScreen({ topic, suggestions, quota, currentTopic, replace }
         </div>
         <section className="mt-6 flex flex-col gap-4 rounded-2xl bg-shape-depth1 p-5">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-bold">조금 좁혀 볼까요?</h2>
+            <h2 className="text-lg font-semibold">조금 좁혀 볼까요?</h2>
             <p className="text-sm text-txt-black-secondary">‘{topic}’은 범위가 넓어서 3분 코스로 담기 어려워요. 이 중에서 골라 주세요.</p>
           </div>
           <div className="flex flex-wrap gap-2">

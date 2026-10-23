@@ -56,7 +56,7 @@ export function SettingsScreen(props: { notifyOn: boolean; notifyTime: string; a
       <AppHeader layout="nav" title="설정" back />
       <Main className="gap-8 pb-8 pt-4">
         <section className="flex flex-col">
-          <h2 className="mb-1 text-sm font-bold text-txt-point">알림</h2>
+          <h2 className="mb-1 text-sm font-bold text-txt-black-secondary">알림</h2>
           <div className={ROW}>
             <div className="flex flex-col gap-0.5">
               <span className="text-base font-semibold">다음 Drop 알림</span>
@@ -96,7 +96,7 @@ export function SettingsScreen(props: { notifyOn: boolean; notifyTime: string; a
         </section>
 
         <section className="flex flex-col">
-          <h2 className="mb-1 text-sm font-bold text-txt-point">계정</h2>
+          <h2 className="mb-1 text-sm font-bold text-txt-black-secondary">계정</h2>
           <div className={ROW}>
             <span className="text-base font-semibold">로그인 계정</span>
             <span className="truncate text-sm text-txt-black-secondary">{props.account ?? '가입 전 (이 기기에만 저장)'}</span>
@@ -131,7 +131,7 @@ export function SettingsScreen(props: { notifyOn: boolean; notifyTime: string; a
         </section>
 
         <section className="flex flex-col">
-          <h2 className="mb-1 text-sm font-bold text-txt-point">정보</h2>
+          <h2 className="mb-1 text-sm font-bold text-txt-black-secondary">정보</h2>
           <Link href="/terms" className={`${ROW} text-base font-semibold`}>
             이용약관
             <IconArrow />
