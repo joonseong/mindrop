@@ -120,7 +120,7 @@ export function AppHeader({ layout = 'nav', title, back, close, settings, divide
         ) : null}
         {layout === 'logo' ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/logo.svg" alt="Minicovery" width={129} height={24} className="ml-3 block h-6 w-auto" />
+          <img src="/logo.svg" alt="Minicovery" width={86} height={16} className="ml-3 block h-4 w-auto" />
         ) : null}
         {layout === 'large' ? <h1 className="ml-3 text-lg font-bold">{title}</h1> : null}
       </div>
